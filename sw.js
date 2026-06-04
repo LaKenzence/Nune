@@ -1,4 +1,3 @@
-
 const CACHE = "23signals-v2";
 const ASSETS = ["./index.html", "./manifest.json", "./lo-fi.mp3"];
  
