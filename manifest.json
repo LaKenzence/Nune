@@ -1,0 +1,15 @@
+{
+  "name": "Twenty Three - Signals",
+  "short_name": "23 Signals",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ff9ad5",
+  "theme_color": "#ff4fb3",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/833/833472.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
