@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#ff4fb3">
 
 <title>23 Signals</title>
 
@@ -87,13 +88,31 @@ let mood = "";
 
 const box = document.getElementById("box");
 const meta = document.getElementById("meta");
+const input = document.getElementById("input");
 
 /* PWA register */
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js");
 }
 
-/* TIME BASED MESSAGE */
+/* vibration (mobile feel) */
+function vibrate() {
+    if (navigator.vibrate) navigator.vibrate(30);
+}
+
+/* typing effect */
+function typeText(text, element) {
+    element.innerHTML = "";
+    let i = 0;
+
+    const interval = setInterval(() => {
+        element.innerHTML += text[i];
+        i++;
+        if (i >= text.length) clearInterval(interval);
+    }, 25);
+}
+
+/* TIME MESSAGE */
 function getTimeMessage() {
     const h = new Date().getHours();
 
@@ -102,56 +121,83 @@ function getTimeMessage() {
     return "Good evening Nune 🌙";
 }
 
-/* conversation system */
+/* conversation system amélioré */
 function send() {
-    const val = document.getElementById("input").value.toLowerCase();
+    const val = input.value.toLowerCase();
+    vibrate();
 
-    if (val.includes("hello")) mood = "hello back 💖";
-    else if (val.includes("23")) mood = "you noticed it too…";
-    else if (val.includes("who")) mood = "just a small signal system ✨";
-    else mood = "I’m listening…";
+    if (val.includes("hello")) mood = "Hey Nune 💖";
+    else if (val.includes("23")) mood = "You keep noticing it… interesting ✨";
+    else if (val.includes("who")) mood = "Just a soft signal system built for you";
+    else if (val.includes("love")) mood = "That word carries a strong signal 💫";
+    else mood = "I’m listening to your signal…";
 
-    box.innerHTML = mood;
+    typeText(mood, box);
 }
 
 /* main tap */
 function tap() {
     count++;
+    vibrate();
 
     let msgList = [
-        "A signal just found its way to you ✨",
-        "Something feels aligned today for Nune",
-        "You are currently inside a soft coincidence",
-        "The number 23 is watching quietly",
-        "This is not random at all",
-        "A future version of this moment exists already",
+        "A small signal reached Nune ✨",
+        "Something is softly aligning today",
+        "You are inside a gentle coincidence",
+        "The number 23 is quietly present",
+        "Nothing here is random",
+        "A future moment is already forming",
         "You are doing better than you think 💖"
     ];
 
     let msg = msgList[Math.floor(Math.random()*msgList.length)];
 
     if (count === 5) msg = getTimeMessage();
-    if (count === 12) msg = "Chapter 2: something is building between signals 💭";
-    if (count === 20) msg = "Final approach… 23 is near ✨";
+    if (count === 12) msg = "Chapter 2: the system starts recognizing you…";
+    if (count === 20) msg = "Final approach… 23 is close ✨";
 
-    box.innerHTML = msg;
+    typeText(msg, box);
     meta.innerText = "signal " + count;
 
     if (count === 23) {
-        box.innerHTML = `
-            💌 PRIVATE MESSAGE UNLOCKED<br><br>
-            Nune…<br>
-            you didn’t just click 23 times.<br><br>
-            you stayed long enough to notice.
-        `;
+        setTimeout(() => {
+            document.body.innerHTML = `
+                <div style="
+                    height:100vh;
+                    display:flex;
+                    flex-direction:column;
+                    justify-content:center;
+                    align-items:center;
+                    text-align:center;
+                    padding:25px;
+                    background: linear-gradient(135deg,#ff4fb3,#6a7cff);
+                    color:white;
+                ">
+                    <h2>💌 PRIVATE SIGNAL UNLOCKED</h2>
+                    <p style="max-width:300px; font-size:18px;">
+                        Nune…<br><br>
+                        this wasn’t just 23 taps.<br><br>
+                        it was someone paying attention.
+                    </p>
+                    <p style="opacity:0.8;">end of signal sequence ✨</p>
+                </div>
+            `;
+        }, 500);
     }
 }
 
-/* music */
+/* music fix mobile */
 function toggleMusic() {
     const m = document.getElementById("music");
-    if (m.paused) m.play();
-    else m.pause();
+    m.volume = 0.4;
+
+    if (m.paused) {
+        m.play().catch(()=>{});
+        box.innerHTML = "Music started 🎵";
+    } else {
+        m.pause();
+        box.innerHTML = "Music paused";
+    }
 }
 </script>
 
