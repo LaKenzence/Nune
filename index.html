@@ -3,203 +3,787 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#ff4fb3">
-
-<title>23 Signals</title>
-
+<meta name="theme-color" content="#c2185b">
+<title>23 Signals – For Nune</title>
 <link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 
 <style>
+:root {
+  --pink: #f06292;
+  --rose: #c2185b;
+  --lilac: #ce93d8;
+  --navy: #1a1033;
+  --cream: #fff8f5;
+  --gold: #ffd54f;
+  --glass: rgba(255,255,255,0.10);
+  --glass-border: rgba(255,255,255,0.18);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
 body {
-    margin: 0;
-    font-family: -apple-system, Arial;
-    background: linear-gradient(135deg, #ff9ad5, #7aa7ff);
-    color: white;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    overflow: hidden;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--navy);
+  color: var(--cream);
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  position: relative;
 }
 
+/* ── CANVAS STARS ── */
+#stars-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── AMBIENT GRADIENT ── */
+.ambient {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 30% 20%, rgba(206,147,216,0.18) 0%, transparent 65%),
+              radial-gradient(ellipse 60% 50% at 80% 80%, rgba(240,98,146,0.14) 0%, transparent 60%),
+              radial-gradient(ellipse 100% 80% at 50% 50%, #1a1033 40%, #0d0920 100%);
+  z-index: 0;
+}
+
+/* ── LAYOUT ── */
+.container {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 380px;
+  padding: 0 20px;
+  gap: 16px;
+}
+
+/* ── HEADER ── */
+.header {
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.header h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  background: linear-gradient(135deg, #f8bbd0, var(--gold), #ce93d8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.45;
+  margin-top: 4px;
+}
+
+/* ── SIGNAL COUNTER ── */
+.signal-ring {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto;
+}
+
+.signal-ring svg {
+  transform: rotate(-90deg);
+}
+
+.ring-bg { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 3; }
+.ring-fill {
+  fill: none;
+  stroke: url(#ringGrad);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 138.2; /* 2π × 22 */
+  stroke-dashoffset: 138.2;
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+.ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+}
+.ring-label span { font-size: 8px; opacity: 0.5; letter-spacing: 0.1em; }
+
+/* ── MAIN CARD ── */
 .card {
-    width: 85%;
-    max-width: 340px;
-    padding: 22px;
-    background: rgba(255,255,255,0.18);
-    border-radius: 20px;
-    backdrop-filter: blur(12px);
-    min-height: 120px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  width: 100%;
+  min-height: 130px;
+  padding: 24px 22px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-button {
-    margin-top: 15px;
-    padding: 12px 18px;
-    border: none;
-    border-radius: 12px;
-    background: white;
-    color: #ff4fb3;
-    font-weight: bold;
+.card:active { transform: scale(0.97); }
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(240,98,146,0.07), rgba(206,147,216,0.05));
+  opacity: 0;
+  transition: opacity 0.3s;
+  border-radius: 22px;
+}
+.card:hover::before { opacity: 1; }
+
+.card-text {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  line-height: 1.55;
+  font-style: italic;
+  color: var(--cream);
 }
 
-small { opacity: 0.8; margin-top: 10px; }
-
-input {
-    margin-top: 15px;
-    padding: 10px;
-    border-radius: 10px;
-    border: none;
-    width: 70%;
+.card-emoji {
+  font-size: 26px;
+  margin-bottom: 10px;
 }
 
+/* Ripple on tap */
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(240,98,146,0.25);
+  transform: scale(0);
+  animation: rippleAnim 0.7s linear;
+  pointer-events: none;
+}
+@keyframes rippleAnim {
+  to { transform: scale(4); opacity: 0; }
+}
+
+/* ── MOOD TAG ── */
+.mood-tag {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.mood-tag.visible { opacity: 1; }
+
+/* ── INPUT ROW ── */
+.input-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.input-row input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  backdrop-filter: blur(10px);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.input-row input::placeholder { opacity: 0.35; }
+.input-row input:focus { border-color: rgba(240,98,146,0.5); }
+
+.btn-send {
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, var(--pink), var(--lilac));
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  transition: transform 0.12s, opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-send:active { transform: scale(0.93); }
+
+/* ── ACTION BUTTONS ── */
+.actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.btn {
+  flex: 1;
+  padding: 13px 10px;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.12s;
+  backdrop-filter: blur(10px);
+  -webkit-tap-highlight-color: transparent;
+  letter-spacing: 0.02em;
+}
+.btn:active { transform: scale(0.95); }
+.btn.primary {
+  background: linear-gradient(135deg, rgba(240,98,146,0.25), rgba(206,147,216,0.20));
+  border-color: rgba(240,98,146,0.35);
+}
+.btn.primary:hover { background: linear-gradient(135deg, rgba(240,98,146,0.38), rgba(206,147,216,0.32)); }
+
+/* ── SECRET MODE ── */
+.secret-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: transparent;
+  color: rgba(255,255,255,0.3);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+  -webkit-tap-highlight-color: transparent;
+}
+.secret-btn:hover { color: var(--gold); border-color: rgba(255,213,79,0.4); }
+
+/* ── NOTIFICATION TOAST ── */
+.toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-80px);
+  background: rgba(26,16,51,0.9);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 10px 20px;
+  font-size: 13px;
+  backdrop-filter: blur(16px);
+  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  z-index: 100;
+  white-space: nowrap;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ── UNLOCK SCREEN ── */
+#unlock-screen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: linear-gradient(135deg, #c2185b, #7b1fa2, #1a1033);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 30px;
+  animation: fadeIn 0.8s ease;
+}
+#unlock-screen.active { display: flex; }
+
+@keyframes fadeIn { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: scale(1); } }
+
+.unlock-hearts {
+  font-size: 48px;
+  margin-bottom: 20px;
+  animation: heartbeat 1.2s infinite;
+}
+@keyframes heartbeat {
+  0%,100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.unlock-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  margin-bottom: 18px;
+  line-height: 1.3;
+}
+
+.unlock-msg {
+  font-size: 16px;
+  line-height: 1.8;
+  opacity: 0.88;
+  max-width: 280px;
+  margin-bottom: 30px;
+}
+
+.unlock-close {
+  padding: 12px 28px;
+  border-radius: 16px;
+  border: 2px solid rgba(255,255,255,0.4);
+  background: transparent;
+  color: white;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ── FLOATING PARTICLES ── */
+.particle {
+  position: fixed;
+  pointer-events: none;
+  z-index: 5;
+  animation: floatUp 1.4s ease-out forwards;
+  font-size: 18px;
+}
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-90px) scale(0.5); }
+}
+
+/* ── MUSIC VISUALIZER ── */
+.music-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.music-bars.playing { opacity: 1; }
+.bar {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--pink);
+  animation: barDance 0.6s ease-in-out infinite alternate;
+}
+.bar:nth-child(1) { height: 6px; animation-delay: 0s; }
+.bar:nth-child(2) { height: 10px; animation-delay: 0.1s; }
+.bar:nth-child(3) { height: 14px; animation-delay: 0.2s; }
+.bar:nth-child(4) { height: 8px; animation-delay: 0.05s; }
+.bar:nth-child(5) { height: 12px; animation-delay: 0.15s; }
+@keyframes barDance {
+  from { transform: scaleY(0.4); }
+  to { transform: scaleY(1); }
+}
+
+.btn-music-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
 </style>
 </head>
-
 <body>
 
-<h2>✨ Twenty Three</h2>
+<div class="ambient"></div>
+<canvas id="stars-canvas"></canvas>
 
-<div class="card" id="box">
-Tap to start signals for Nune 💖
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Unlock Screen (signal 23) -->
+<div id="unlock-screen">
+  <div class="unlock-hearts">💌</div>
+  <div class="unlock-title">Signal received.<br>Finally.</div>
+  <div class="unlock-msg" id="unlock-msg"></div>
+  <button class="unlock-close" onclick="document.getElementById('unlock-screen').classList.remove('active')">
+    continue ✨
+  </button>
 </div>
 
-<input id="input" placeholder="say something..." />
+<div class="container">
 
-<button onclick="send()">SEND</button>
+  <!-- Header -->
+  <div class="header">
+    <h1>Twenty Three</h1>
+    <div class="subtitle">signals for nune</div>
+  </div>
 
-<button onclick="tap()">NEXT SIGNAL</button>
+  <!-- Signal ring -->
+  <div class="signal-ring">
+    <svg width="56" height="56" viewBox="0 0 56 56">
+      <defs>
+        <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f06292"/>
+          <stop offset="100%" stop-color="#ce93d8"/>
+        </linearGradient>
+      </defs>
+      <circle class="ring-bg" cx="28" cy="28" r="22"/>
+      <circle class="ring-fill" id="ring-fill" cx="28" cy="28" r="22"/>
+    </svg>
+    <div class="ring-label">
+      <strong id="count-display">0</strong>
+      <span>/ 23</span>
+    </div>
+  </div>
 
-<button onclick="toggleMusic()">🎵 music</button>
+  <!-- Main card -->
+  <div class="card" id="card" onclick="tap(event)">
+    <div class="card-emoji" id="card-emoji">✨</div>
+    <div class="card-text" id="card-text">
+      Tap to begin the signals…
+    </div>
+  </div>
 
-<small id="meta"></small>
+  <!-- Mood tag -->
+  <div class="mood-tag" id="mood-tag"></div>
+
+  <!-- Input -->
+  <div class="input-row">
+    <input id="input" type="text" placeholder="say something…" onkeydown="if(event.key==='Enter')send()"/>
+    <button class="btn-send" onclick="send()">→</button>
+  </div>
+
+  <!-- Buttons -->
+  <div class="actions">
+    <button class="btn primary" onclick="tap(null)">Next signal ✦</button>
+    <button class="btn btn-music-row" onclick="toggleMusic()">
+      <span id="music-icon">🎵</span>
+      <div class="music-bars" id="music-bars">
+        <div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+      </div>
+    </button>
+    <button class="secret-btn" onclick="secretMode()" title="✦">✦</button>
+  </div>
+
+</div>
 
 <audio id="music" loop>
-    <source src="lo-fi.mp3" type="audio/mp3">
+  <source src="lo-fi.mp3" type="audio/mp3">
 </audio>
 
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+</svg>
+
 <script>
+/* ── STATE ── */
 let count = 0;
-let mood = "";
+let musicPlaying = false;
+let secretModeCount = 0;
 
-const box = document.getElementById("box");
-const meta = document.getElementById("meta");
-const input = document.getElementById("input");
+const CIRCUMFERENCE = 2 * Math.PI * 22; // 138.23
 
-/* PWA register */
-if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js");
+/* ── SIGNALS DATABASE ── */
+const signals = [
+  { emoji: "🌙", text: "Something soft is aligning tonight.", mood: "calm" },
+  { emoji: "✨", text: "23 is here, in the space between two thoughts.", mood: "mystery" },
+  { emoji: "💫", text: "You notice coincidences because they belong to you.", mood: "magic" },
+  { emoji: "🌸", text: "An ordinary moment just became rare.", mood: "softness" },
+  { emoji: "🔮", text: "This is not chance. None of it is.", mood: "destiny" },
+  { emoji: "💖", text: "Someone is thinking hard about you right now.", mood: "love" },
+  { emoji: "🌿", text: "Breathe. This signal found you.", mood: "serenity" },
+  { emoji: "⭐", text: "The stars have memory. And you are written in them.", mood: "cosmos" },
+  { emoji: "🕊️", text: "Lightness. That is what you deserve.", mood: "peace" },
+  { emoji: "🌊", text: "Waves don't choose where they arrive, and yet…", mood: "chance" },
+  { emoji: "🦋", text: "A quiet transformation is underway.", mood: "awakening" },
+  { emoji: "🌙", text: "Tonight, the sky has something reserved for you.", mood: "night" },
+  { emoji: "💛", text: "You are exactly where you need to be.", mood: "trust" },
+  { emoji: "🎴", text: "Chapter 2: the system is starting to recognize you…", mood: "mystery" },
+  { emoji: "🌺", text: "Every signal is proof that you are seen.", mood: "presence" },
+  { emoji: "✦", text: "Something invisible is holding your hand.", mood: "connection" },
+  { emoji: "🌙", text: "The night brings wisdom, and you carry light.", mood: "light" },
+  { emoji: "💌", text: "A message traveled far to reach you.", mood: "love" },
+  { emoji: "🫧", text: "Total lightness. Everything heavy can drift away.", mood: "release" },
+  { emoji: "🌟", text: "Final approach… 23 is very close.", mood: "anticipation" },
+  { emoji: "🔮", text: "This wasn't 23 taps.", mood: "revelation" },
+  { emoji: "💫", text: "It was someone paying attention.", mood: "love" },
+];
+
+const unlockMessages = [
+  `Nune…\n\nchaque signal était une façon de te dire quelque chose\nsans le dire tout à fait.\n\nMaintenant tu sais. 💖`,
+  `Tu es arrivée au signal 23.\n\nEt moi j'ai arrêté de compter depuis longtemps,\nparce que chaque moment avec toi\nn'a pas besoin de chiffre.`,
+];
+
+/* ── CHAT RESPONSES ── */
+const chatResponses = {
+  "hello|salut|hey|bonjour|coucou": { emoji: "💖", text: "Bonjour Nune… le signal t'attendait.", mood: "présence" },
+  "23": { emoji: "🔮", text: "Tu le remarques encore. Ce n'est pas anodin.", mood: "mystère" },
+  "amour|love|je t'aime|t'aime": { emoji: "💌", text: "Ce mot porte un signal très fort.", mood: "amour" },
+  "qui|who": { emoji: "✦", text: "Juste un système doux construit pour toi.", mood: "mystère" },
+  "triste|sad|mal": { emoji: "🌙", text: "Ce n'est que temporaire. Tu es plus forte que ce soir.", mood: "sérénité" },
+  "belle|beautiful|jolie": { emoji: "🌸", text: "Le signal confirme : absolument.", mood: "douceur" },
+  "merci|thank": { emoji: "💛", text: "C'est toi le signal le plus fort ici.", mood: "lumière" },
+  "secret": { emoji: "🔒", text: "Tu as trouvé le mot. Tape ✦ pour aller plus loin.", mood: "mystère" },
+};
+
+/* ── STARS CANVAS ── */
+(function() {
+  const canvas = document.getElementById('stars-canvas');
+  const ctx = canvas.getContext('2d');
+  let stars = [];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function initStars() {
+    stars = [];
+    for (let i = 0; i < 80; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.4 + 0.3,
+        alpha: Math.random() * 0.5 + 0.1,
+        speed: Math.random() * 0.3 + 0.05,
+        drift: (Math.random() - 0.5) * 0.2,
+        twinkle: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const t = Date.now() / 1000;
+    stars.forEach(s => {
+      s.twinkle += 0.02;
+      const a = s.alpha * (0.6 + 0.4 * Math.sin(s.twinkle));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,220,240,${a})`;
+      ctx.fill();
+      s.y -= s.speed;
+      s.x += s.drift;
+      if (s.y < -5) { s.y = canvas.height + 5; s.x = Math.random() * canvas.width; }
+      if (s.x < -5) s.x = canvas.width + 5;
+      if (s.x > canvas.width + 5) s.x = -5;
+    });
+    requestAnimationFrame(draw);
+  }
+
+  resize();
+  initStars();
+  draw();
+  window.addEventListener('resize', () => { resize(); initStars(); });
+})();
+
+/* ── RING PROGRESS ── */
+function updateRing() {
+  const fill = document.getElementById('ring-fill');
+  const progress = Math.min(count / 23, 1);
+  fill.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+  document.getElementById('count-display').textContent = count;
 }
 
-/* vibration (mobile feel) */
-function vibrate() {
-    if (navigator.vibrate) navigator.vibrate(30);
+/* ── TYPING EFFECT ── */
+function typeText(text, el, speed = 22) {
+  el.innerHTML = "";
+  let i = 0;
+  const interval = setInterval(() => {
+    el.innerHTML += text[i] === '\n' ? '<br>' : text[i];
+    i++;
+    if (i >= text.length) clearInterval(interval);
+  }, speed);
 }
 
-/* typing effect */
-function typeText(text, element) {
-    element.innerHTML = "";
-    let i = 0;
-
-    const interval = setInterval(() => {
-        element.innerHTML += text[i];
-        i++;
-        if (i >= text.length) clearInterval(interval);
-    }, 25);
-}
-
-/* TIME MESSAGE */
+/* ── TIME MESSAGE ── */
 function getTimeMessage() {
-    const h = new Date().getHours();
-
-    if (h < 12) return "Good morning Nune ☀️";
-    if (h < 18) return "Good afternoon Nune 🌤️";
-    return "Good evening Nune 🌙";
+  const h = new Date().getHours();
+  if (h < 6)  return { emoji: "🌙", text: "Tu es encore debout… Le signal veille avec toi.", mood: "nuit" };
+  if (h < 12) return { emoji: "☀️", text: "Bon matin Nune. Une belle journée commence.", mood: "douceur" };
+  if (h < 18) return { emoji: "🌤️", text: "Bel après-midi. Le soleil t'a vue.", mood: "lumière" };
+  return { emoji: "🌙", text: "Bonne soirée Nune. Tu mérites une belle nuit.", mood: "calme" };
 }
 
-/* conversation system amélioré */
+/* ── SPECIAL DATE ── */
+function getDateMessage() {
+  const d = new Date();
+  const day = d.getDate(), month = d.getMonth() + 1;
+  if (day === 23) return { emoji: "🎯", text: "Aujourd'hui c'est le 23. Le signal est maximal.", mood: "mystère" };
+  if (day === 14 && month === 2) return { emoji: "💝", text: "La Saint-Valentin. Tous les signaux convergent vers toi.", mood: "amour" };
+  return null;
+}
+
+/* ── PARTICLES ── */
+const PARTICLES = ["💫", "✨", "🌸", "⭐", "💖", "✦", "🫧", "💛"];
+
+function spawnParticles(x, y) {
+  const n = 5 + Math.floor(Math.random() * 4);
+  for (let i = 0; i < n; i++) {
+    setTimeout(() => {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.textContent = PARTICLES[Math.floor(Math.random() * PARTICLES.length)];
+      p.style.left = (x + (Math.random() - 0.5) * 80) + 'px';
+      p.style.top = (y + (Math.random() - 0.5) * 40) + 'px';
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 1500);
+    }, i * 60);
+  }
+}
+
+/* ── RIPPLE ── */
+function spawnRipple(e, card) {
+  const rect = card.getBoundingClientRect();
+  const x = (e?.clientX ?? rect.left + rect.width/2) - rect.left;
+  const y = (e?.clientY ?? rect.top + rect.height/2) - rect.top;
+  const rip = document.createElement('span');
+  rip.className = 'ripple';
+  rip.style.left = x + 'px';
+  rip.style.top = y + 'px';
+  rip.style.width = rip.style.height = '60px';
+  rip.style.marginLeft = rip.style.marginTop = '-30px';
+  card.appendChild(rip);
+  setTimeout(() => rip.remove(), 800);
+}
+
+/* ── TOAST ── */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+/* ── SET CARD ── */
+function setCard(sig) {
+  document.getElementById('card-emoji').textContent = sig.emoji;
+  typeText(sig.text, document.getElementById('card-text'));
+  const tag = document.getElementById('mood-tag');
+  tag.textContent = sig.mood;
+  tag.classList.add('visible');
+}
+
+/* ── VIBRATE ── */
+function vibrate(pattern = [30]) {
+  if (navigator.vibrate) navigator.vibrate(pattern);
+}
+
+/* ── TAP ── */
+function tap(e) {
+  count++;
+  vibrate([20, 10, 20]);
+  updateRing();
+
+  const card = document.getElementById('card');
+  if (e) spawnRipple(e, card);
+
+  // Particle burst from card center
+  const rect = card.getBoundingClientRect();
+  spawnParticles(rect.left + rect.width/2, rect.top + rect.height/2);
+
+  // Select signal
+  let sig;
+  const dateMsg = getDateMessage();
+
+  if (count === 5) sig = getTimeMessage();
+  else if (count === 10 && dateMsg) sig = dateMsg;
+  else if (count === 23) {
+    // Unlock!
+    sig = { emoji: "💌", text: "Signal 23 atteint…", mood: "révélation" };
+    setTimeout(() => {
+      const msg = unlockMessages[Math.floor(Math.random() * unlockMessages.length)];
+      document.getElementById('unlock-msg').innerHTML = msg.replace(/\n/g, '<br>');
+      document.getElementById('unlock-screen').classList.add('active');
+      vibrate([50, 30, 50, 30, 100]);
+    }, 800);
+  } else {
+    const pool = signals.filter((_, i) => i !== (count - 2));
+    sig = pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  if (sig) setCard(sig);
+
+  // Milestone toasts
+  if (count === 7) showToast("7 signaux… tu es dans le rythme ✨");
+  if (count === 11) showToast("Onze. Un nombre oublié, mais pas ce soir.");
+  if (count === 17) showToast("17 signaux. Le 23 approche…");
+}
+
+/* ── SEND ── */
 function send() {
-    const val = input.value.toLowerCase();
-    vibrate();
+  const val = document.getElementById('input').value.trim().toLowerCase();
+  if (!val) return;
+  vibrate([15]);
 
-    if (val.includes("hello")) mood = "Hey Nune 💖";
-    else if (val.includes("23")) mood = "You keep noticing it… interesting ✨";
-    else if (val.includes("who")) mood = "Just a soft signal system built for you";
-    else if (val.includes("love")) mood = "That word carries a strong signal 💫";
-    else mood = "I’m listening to your signal…";
+  let match = null;
+  for (const [pattern, response] of Object.entries(chatResponses)) {
+    if (new RegExp(pattern).test(val)) { match = response; break; }
+  }
 
-    typeText(mood, box);
+  if (!match) match = { emoji: "🌙", text: "Je reçois ton signal… il voyage.", mood: "écoute" };
+
+  setCard(match);
+  document.getElementById('input').value = "";
 }
 
-/* main tap */
-function tap() {
-    count++;
-    vibrate();
-
-    let msgList = [
-        "A small signal reached Nune ✨",
-        "Something is softly aligning today",
-        "You are inside a gentle coincidence",
-        "The number 23 is quietly present",
-        "Nothing here is random",
-        "A future moment is already forming",
-        "You are doing better than you think 💖"
-    ];
-
-    let msg = msgList[Math.floor(Math.random()*msgList.length)];
-
-    if (count === 5) msg = getTimeMessage();
-    if (count === 12) msg = "Chapter 2: the system starts recognizing you…";
-    if (count === 20) msg = "Final approach… 23 is close ✨";
-
-    typeText(msg, box);
-    meta.innerText = "signal " + count;
-
-    if (count === 23) {
-        setTimeout(() => {
-            document.body.innerHTML = `
-                <div style="
-                    height:100vh;
-                    display:flex;
-                    flex-direction:column;
-                    justify-content:center;
-                    align-items:center;
-                    text-align:center;
-                    padding:25px;
-                    background: linear-gradient(135deg,#ff4fb3,#6a7cff);
-                    color:white;
-                ">
-                    <h2>💌 PRIVATE SIGNAL UNLOCKED</h2>
-                    <p style="max-width:300px; font-size:18px;">
-                        Nune…<br><br>
-                        this wasn’t just 23 taps.<br><br>
-                        it was someone paying attention.
-                    </p>
-                    <p style="opacity:0.8;">end of signal sequence ✨</p>
-                </div>
-            `;
-        }, 500);
-    }
-}
-
-/* music fix mobile */
+/* ── MUSIC ── */
 function toggleMusic() {
-    const m = document.getElementById("music");
-    m.volume = 0.4;
+  const m = document.getElementById('music');
+  const bars = document.getElementById('music-bars');
+  m.volume = 0.35;
 
-    if (m.paused) {
-        m.play().catch(()=>{});
-        box.innerHTML = "Music started 🎵";
-    } else {
-        m.pause();
-        box.innerHTML = "Music paused";
-    }
+  if (m.paused) {
+    m.play().catch(() => showToast("Ajoute un fichier lo-fi.mp3 🎵"));
+    musicPlaying = true;
+    bars.classList.add('playing');
+    document.getElementById('music-icon').textContent = '⏸';
+  } else {
+    m.pause();
+    musicPlaying = false;
+    bars.classList.remove('playing');
+    document.getElementById('music-icon').textContent = '🎵';
+  }
 }
-</script>
 
+/* ── SECRET MODE ── */
+function secretMode() {
+  secretModeCount++;
+  if (secretModeCount === 3) {
+    showToast("Mode secret activé 🔮");
+    setCard({ emoji: "🔮", text: "Tu as trouvé le signal caché.\nCelui-là, personne ne le voit sauf toi.", mood: "secret" });
+    secretModeCount = 0;
+  } else {
+    showToast(["Un signal…", "Encore un…", ""][secretModeCount - 1] || "");
+  }
+}
+
+/* ── PWA ── */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+/* ── INIT ── */
+updateRing();
+</script>
 </body>
 </html>
