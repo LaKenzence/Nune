@@ -7,903 +7,27 @@
 <title>Twenty Three – Pour Nune</title>
 <link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
- 
-<style>
-:root {
-  --pink: #f06292;
-  --rose: #c2185b;
-  --lilac: #ce93d8;
-  --navy: #1a1033;
-  --cream: #fff8f5;
-  --gold: #ffd54f;
-  --glass: rgba(255,255,255,0.10);
-  --glass-border: rgba(255,255,255,0.18);
-}
- 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
- 
-body {
-  font-family: 'DM Sans', sans-serif;
-  background: var(--navy);
-  color: var(--cream);
-  height: 100dvh;
-  width: 100vw;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
- 
-#stars-canvas {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
- 
-.ambient {
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 80% 60% at 30% 20%, rgba(206,147,216,0.18) 0%, transparent 65%),
-    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(240,98,146,0.14) 0%, transparent 60%),
-    radial-gradient(ellipse 100% 80% at 50% 50%, #1a1033 40%, #0d0920 100%);
-  z-index: 0;
-}
- 
-/* ── NAV TABS ── */
-.nav-tabs {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
-  display: flex;
-  background: rgba(15, 10, 35, 0.92);
-  border-top: 1px solid var(--glass-border);
-  backdrop-filter: blur(20px);
-  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
-}
- 
-.nav-tab {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 6px 4px;
-  background: none;
-  border: none;
-  color: rgba(255,255,255,0.35);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  transition: color 0.2s;
-  -webkit-tap-highlight-color: transparent;
-}
-.nav-tab .tab-icon { font-size: 20px; line-height: 1; }
-.nav-tab.active { color: var(--pink); }
- 
-/* ── SCREENS ── */
-.screen {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  overflow-y: auto;
-  padding-bottom: 80px;
-}
-.screen.active { display: flex; }
- 
-/* ── HOME SCREEN ── */
-#screen-home {
-  justify-content: center;
-}
- 
-.container {
-  position: relative;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 380px;
-  padding: 0 20px;
-  gap: 14px;
-}
- 
-.header { text-align: center; margin-bottom: 2px; }
- 
-.header h1 {
-  font-family: 'Playfair Display', serif;
-  font-size: 28px;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  line-height: 1.1;
-  background: linear-gradient(135deg, #f8bbd0, var(--gold), #ce93d8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
- 
-.subtitle {
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  opacity: 0.45;
-  margin-top: 4px;
-}
- 
-/* ── DAILY BADGE ── */
-.daily-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
-  border-radius: 20px;
-  background: rgba(255,213,79,0.1);
-  border: 1px solid rgba(255,213,79,0.25);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--gold);
-  opacity: 0;
-  transition: opacity 0.5s;
-}
-.daily-badge.show { opacity: 1; }
-.daily-badge span { font-size: 14px; }
- 
-/* ── SIGNAL RING ── */
-.signal-ring {
-  position: relative;
-  width: 56px;
-  height: 56px;
-  margin: 0 auto;
-}
-.signal-ring svg { transform: rotate(-90deg); }
-.ring-bg { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 3; }
-.ring-fill {
-  fill: none;
-  stroke: url(#ringGrad);
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-dasharray: 138.2;
-  stroke-dashoffset: 138.2;
-  transition: stroke-dashoffset 0.6s cubic-bezier(0.34,1.56,0.64,1);
-}
-.ring-label {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1;
-}
-.ring-label span { font-size: 8px; opacity: 0.5; letter-spacing: 0.1em; }
- 
-/* ── MAIN CARD ── */
-.card {
-  width: 100%;
-  min-height: 130px;
-  padding: 24px 22px;
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  border-radius: 22px;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.3s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-.card:active { transform: scale(0.97); }
-.card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(240,98,146,0.07), rgba(206,147,216,0.05));
-  opacity: 0;
-  transition: opacity 0.3s;
-  border-radius: 22px;
-}
-.card:hover::before { opacity: 1; }
- 
-.card-text {
-  font-family: 'Playfair Display', serif;
-  font-size: 18px;
-  line-height: 1.55;
-  font-style: italic;
-  color: var(--cream);
-}
-.card-emoji { font-size: 26px; margin-bottom: 10px; }
- 
-.ripple {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(240,98,146,0.25);
-  transform: scale(0);
-  animation: rippleAnim 0.7s linear;
-  pointer-events: none;
-}
-@keyframes rippleAnim { to { transform: scale(4); opacity: 0; } }
- 
-.mood-tag {
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  padding: 4px 12px;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.12);
-  opacity: 0;
-  transition: opacity 0.4s;
-}
-.mood-tag.visible { opacity: 1; }
- 
-/* ── INPUT ROW ── */
-.input-row {
-  display: flex;
-  gap: 8px;
-  width: 100%;
-}
-.input-row input {
-  flex: 1;
-  padding: 12px 16px;
-  border-radius: 14px;
-  border: 1px solid var(--glass-border);
-  background: var(--glass);
-  color: var(--cream);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  backdrop-filter: blur(10px);
-  outline: none;
-  transition: border-color 0.2s;
-}
-.input-row input::placeholder { opacity: 0.35; }
-.input-row input:focus { border-color: rgba(240,98,146,0.5); }
- 
-.btn-send {
-  padding: 12px 16px;
-  border-radius: 14px;
-  border: none;
-  background: linear-gradient(135deg, var(--pink), var(--lilac));
-  color: white;
-  font-size: 18px;
-  cursor: pointer;
-  transition: transform 0.12s;
-  -webkit-tap-highlight-color: transparent;
-}
-.btn-send:active { transform: scale(0.93); }
- 
-/* ── ACTION BUTTONS ── */
-.actions {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-}
-.btn {
-  flex: 1;
-  padding: 13px 10px;
-  border-radius: 16px;
-  border: 1px solid var(--glass-border);
-  background: var(--glass);
-  color: var(--cream);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.12s;
-  backdrop-filter: blur(10px);
-  -webkit-tap-highlight-color: transparent;
-  letter-spacing: 0.02em;
-}
-.btn:active { transform: scale(0.95); }
-.btn.primary {
-  background: linear-gradient(135deg, rgba(240,98,146,0.25), rgba(206,147,216,0.20));
-  border-color: rgba(240,98,146,0.35);
-}
-.secret-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: transparent;
-  color: rgba(255,255,255,0.3);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s;
-  -webkit-tap-highlight-color: transparent;
-}
-.secret-btn:hover { color: var(--gold); border-color: rgba(255,213,79,0.4); }
- 
-.btn-music-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
- 
-/* ── TOAST ── */
-.toast {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%) translateY(-80px);
-  background: rgba(26,16,51,0.95);
-  border: 1px solid var(--glass-border);
-  border-radius: 14px;
-  padding: 10px 20px;
-  font-size: 13px;
-  backdrop-filter: blur(16px);
-  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
-  z-index: 200;
-  white-space: nowrap;
-}
-.toast.show { transform: translateX(-50%) translateY(0); }
- 
-/* ── UNLOCK SCREEN ── */
-#unlock-screen {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  background: linear-gradient(135deg, #c2185b, #7b1fa2, #1a1033);
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 40px 30px;
-  animation: fadeIn 0.8s ease;
-}
-#unlock-screen.active { display: flex; }
- 
-@keyframes fadeIn { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: scale(1); } }
- 
-.unlock-hearts { font-size: 48px; margin-bottom: 20px; animation: heartbeat 1.2s infinite; }
-@keyframes heartbeat {
-  0%,100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
-}
-.unlock-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 26px;
-  margin-bottom: 18px;
-  line-height: 1.3;
-}
-.unlock-msg {
-  font-size: 16px;
-  line-height: 1.8;
-  opacity: 0.88;
-  max-width: 280px;
-  margin-bottom: 20px;
-}
- 
-/* ── SURPRISE PHOTO in unlock ── */
-.unlock-photo-container {
-  width: 200px;
-  height: 200px;
-  border-radius: 20px;
-  overflow: hidden;
-  border: 2px solid rgba(255,255,255,0.3);
-  margin-bottom: 20px;
-  display: none;
-  position: relative;
-}
-.unlock-photo-container.has-photo { display: block; }
-.unlock-photo-container img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.unlock-photo-label {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(transparent, rgba(0,0,0,0.6));
-  padding: 20px 10px 8px;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-align: center;
-  opacity: 0.8;
-}
- 
-.unlock-close {
-  padding: 12px 28px;
-  border-radius: 16px;
-  border: 2px solid rgba(255,255,255,0.4);
-  background: transparent;
-  color: white;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
- 
-/* ── PARTICLES ── */
-.particle {
-  position: fixed;
-  pointer-events: none;
-  z-index: 5;
-  animation: floatUp 1.4s ease-out forwards;
-  font-size: 18px;
-}
-@keyframes floatUp {
-  0% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-90px) scale(0.5); }
-}
- 
-/* ── MUSIC BARS ── */
-.music-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 14px;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-.music-bars.playing { opacity: 1; }
-.bar {
-  width: 3px;
-  border-radius: 2px;
-  background: var(--pink);
-  animation: barDance 0.6s ease-in-out infinite alternate;
-}
-.bar:nth-child(1) { height: 6px; animation-delay: 0s; }
-.bar:nth-child(2) { height: 10px; animation-delay: 0.1s; }
-.bar:nth-child(3) { height: 14px; animation-delay: 0.2s; }
-.bar:nth-child(4) { height: 8px; animation-delay: 0.05s; }
-.bar:nth-child(5) { height: 12px; animation-delay: 0.15s; }
-@keyframes barDance { from { transform: scaleY(0.4); } to { transform: scaleY(1); } }
- 
-/* ════════════════════════════════
-   ── COUNTDOWN SCREEN ──
-════════════════════════════════ */
-#screen-countdown {
-  justify-content: flex-start;
-  padding-top: 60px;
-}
- 
-.screen-header {
-  width: 100%;
-  max-width: 380px;
-  padding: 0 20px;
-  margin-bottom: 24px;
-}
-.screen-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 22px;
-  font-weight: 400;
-  background: linear-gradient(135deg, #f8bbd0, var(--gold));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.screen-sub {
-  font-size: 11px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  opacity: 0.4;
-  margin-top: 4px;
-}
- 
-.countdown-list {
-  width: 100%;
-  max-width: 380px;
-  padding: 0 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
- 
-.countdown-card {
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  border-radius: 20px;
-  padding: 18px 20px;
-  backdrop-filter: blur(12px);
-}
- 
-.countdown-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
- 
-.countdown-name {
-  font-family: 'Playfair Display', serif;
-  font-size: 16px;
-  font-style: italic;
-}
- 
-.countdown-delete {
-  background: none;
-  border: none;
-  color: rgba(255,255,255,0.2);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 4px;
-  line-height: 1;
-  -webkit-tap-highlight-color: transparent;
-}
- 
-.countdown-units {
-  display: flex;
-  gap: 8px;
-}
- 
-.cd-unit {
-  flex: 1;
-  text-align: center;
-  background: rgba(255,255,255,0.05);
-  border-radius: 12px;
-  padding: 10px 6px;
-}
- 
-.cd-num {
-  font-size: 22px;
-  font-weight: 500;
-  background: linear-gradient(135deg, var(--pink), var(--lilac));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  line-height: 1;
-}
- 
-.cd-label {
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  opacity: 0.4;
-  margin-top: 4px;
-}
- 
-.countdown-past {
-  text-align: center;
-  font-size: 13px;
-  opacity: 0.5;
-  font-style: italic;
-  padding: 6px 0 2px;
-}
- 
-/* Add countdown form */
-.add-countdown-form {
-  width: 100%;
-  max-width: 380px;
-  padding: 0 20px;
-  margin-top: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
- 
-.form-input {
-  width: 100%;
-  padding: 13px 16px;
-  border-radius: 14px;
-  border: 1px solid var(--glass-border);
-  background: var(--glass);
-  color: var(--cream);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  backdrop-filter: blur(10px);
-  outline: none;
-  transition: border-color 0.2s;
-}
-.form-input::placeholder { opacity: 0.35; }
-.form-input:focus { border-color: rgba(240,98,146,0.5); }
- 
-.btn-add {
-  padding: 13px;
-  border-radius: 14px;
-  border: none;
-  background: linear-gradient(135deg, var(--pink), var(--lilac));
-  color: white;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
- 
-/* ════════════════════════════════
-   ── GALLERY SCREEN ──
-════════════════════════════════ */
-#screen-gallery {
-  justify-content: flex-start;
-  padding-top: 60px;
-}
- 
-.gallery-grid {
-  width: 100%;
-  max-width: 380px;
-  padding: 0 20px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
- 
-.gallery-item {
-  position: relative;
-  border-radius: 16px;
-  overflow: hidden;
-  aspect-ratio: 1;
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  cursor: pointer;
-}
- 
-.gallery-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
- 
-.gallery-item .gallery-caption {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(transparent, rgba(15,8,40,0.85));
-  padding: 20px 10px 8px;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.gallery-item:hover .gallery-caption,
-.gallery-item:active .gallery-caption { opacity: 1; }
- 
-.gallery-item .gallery-delete {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.5);
-  border: none;
-  color: white;
-  font-size: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.gallery-item:hover .gallery-delete,
-.gallery-item:active .gallery-delete { opacity: 1; }
- 
-.gallery-empty {
-  grid-column: span 2;
-  text-align: center;
-  padding: 40px 20px;
-  opacity: 0.4;
-  font-style: italic;
-  font-size: 14px;
-  line-height: 1.7;
-}
- 
-.gallery-add-area {
-  width: 100%;
-  max-width: 380px;
-  padding: 0 20px;
-  margin-top: 4px;
-}
- 
-.gallery-upload {
-  width: 100%;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1.5px dashed rgba(240,98,146,0.4);
-  background: rgba(240,98,146,0.05);
-  color: var(--pink);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
-  cursor: pointer;
-  text-align: center;
-  -webkit-tap-highlight-color: transparent;
-}
- 
-.caption-input-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
- 
-/* ── Surprise badge on gallery ── */
-.surprise-lock {
-  grid-column: span 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 16px;
-  border-radius: 16px;
-  background: var(--glass);
-  border: 1px dashed rgba(206,147,216,0.35);
-  font-size: 13px;
-  opacity: 0.6;
-  font-style: italic;
-}
- 
-/* ════════════════════════════════
-   ── HISTORY SCREEN ──
-════════════════════════════════ */
-#screen-history {
-  justify-content: flex-start;
-  padding-top: 60px;
-}
- 
-.history-list {
-  width: 100%;
-  max-width: 380px;
-  padding: 0 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
- 
-.history-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
-  backdrop-filter: blur(10px);
-}
- 
-.history-emoji { font-size: 20px; flex-shrink: 0; }
- 
-.history-body { flex: 1; min-width: 0; }
- 
-.history-text {
-  font-size: 13px;
-  font-style: italic;
-  font-family: 'Playfair Display', serif;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  opacity: 0.9;
-}
- 
-.history-meta {
-  font-size: 10px;
-  opacity: 0.35;
-  margin-top: 2px;
-  letter-spacing: 0.05em;
-}
- 
-.history-empty {
-  text-align: center;
-  padding: 40px 20px;
-  opacity: 0.35;
-  font-style: italic;
-  font-size: 14px;
-  line-height: 1.7;
-}
- 
-.history-clear {
-  width: 100%;
-  max-width: 380px;
-  padding: 0 20px;
-  margin-top: 8px;
-}
-.btn-clear {
-  width: 100%;
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: transparent;
-  color: rgba(255,255,255,0.3);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
- 
-/* ── Lightbox ── */
-#lightbox {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: rgba(0,0,0,0.88);
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 14px;
-  padding: 30px;
-}
-#lightbox.open { display: flex; }
-#lightbox img {
-  max-width: 100%;
-  max-height: 65vh;
-  border-radius: 18px;
-  object-fit: contain;
-}
-#lightbox-caption {
-  font-family: 'Playfair Display', serif;
-  font-style: italic;
-  font-size: 16px;
-  opacity: 0.8;
-  text-align: center;
-}
-#lightbox-close {
-  padding: 10px 24px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.3);
-  background: transparent;
-  color: white;
-  font-size: 14px;
-  cursor: pointer;
-}
- 
-/* ── Notif permission prompt ── */
-.notif-banner {
-  width: 100%;
-  max-width: 380px;
-  padding: 0 20px;
-  display: none;
-}
-.notif-banner.show { display: block; }
-.notif-card {
-  padding: 14px 18px;
-  border-radius: 18px;
-  background: rgba(194,24,91,0.15);
-  border: 1px solid rgba(194,24,91,0.3);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.notif-card .notif-icon { font-size: 22px; }
-.notif-card .notif-body { flex: 1; }
-.notif-card .notif-title { font-size: 13px; font-weight: 500; }
-.notif-card .notif-sub { font-size: 11px; opacity: 0.55; margin-top: 2px; }
-.notif-card .notif-btn {
-  padding: 8px 14px;
-  border-radius: 12px;
-  border: none;
-  background: var(--rose);
-  color: white;
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
- 
+
 <div class="ambient"></div>
 <canvas id="stars-canvas"></canvas>
 <div class="toast" id="toast"></div>
- 
+
+<!-- Birthday Banner -->
+<div class="birthday-banner" id="birthday-banner">
+  <div class="birthday-banner-text" id="birthday-banner-text"></div>
+  <button class="birthday-banner-close" onclick="closeBirthdayBanner()">✕</button>
+</div>
+
 <!-- Lightbox -->
 <div id="lightbox" onclick="if(event.target===this)closeLightbox()">
   <img id="lightbox-img" src="" alt="">
   <div id="lightbox-caption"></div>
   <button id="lightbox-close" onclick="closeLightbox()">fermer ✦</button>
 </div>
- 
+
 <!-- Unlock Screen -->
 <div id="unlock-screen">
   <div class="unlock-hearts">💌</div>
@@ -915,7 +39,7 @@ body {
   <div class="unlock-msg" id="unlock-msg"></div>
   <button class="unlock-close" onclick="closeUnlock()">continuer ✨</button>
 </div>
- 
+
 <!-- ════════ HOME SCREEN ════════ -->
 <div class="screen active" id="screen-home">
   <div class="container">
@@ -923,12 +47,12 @@ body {
       <h1>Twenty Three</h1>
       <div class="subtitle">signaux pour nune</div>
     </div>
- 
+
     <div class="daily-badge" id="daily-badge">
       <span>🌟</span>
       <span id="daily-badge-text">signal du jour</span>
     </div>
- 
+
     <div class="notif-banner" id="notif-banner">
       <div class="notif-card">
         <div class="notif-icon">💌</div>
@@ -939,7 +63,7 @@ body {
         <button class="notif-btn" onclick="requestNotifPermission()">Activer</button>
       </div>
     </div>
- 
+
     <div class="signal-ring">
       <svg width="56" height="56" viewBox="0 0 56 56">
         <defs>
@@ -956,19 +80,19 @@ body {
         <span>/ 23</span>
       </div>
     </div>
- 
+
     <div class="card" id="card" onclick="tap(event)">
       <div class="card-emoji" id="card-emoji">✨</div>
       <div class="card-text" id="card-text">Touche pour commencer les signaux…</div>
     </div>
- 
+
     <div class="mood-tag" id="mood-tag"></div>
- 
+
     <div class="input-row">
       <input id="input" type="text" placeholder="dis quelque chose…" onkeydown="if(event.key==='Enter')send()"/>
       <button class="btn-send" onclick="send()">→</button>
     </div>
- 
+
     <div class="actions">
       <button class="btn primary" onclick="tap(null)">Signal suivant ✦</button>
       <button class="btn btn-music-row" onclick="toggleMusic()">
@@ -982,32 +106,32 @@ body {
     </div>
   </div>
 </div>
- 
+
 <!-- ════════ COUNTDOWN SCREEN ════════ -->
 <div class="screen" id="screen-countdown">
-  <div class="screen-header" style="max-width:380px;padding:0 20px">
+  <div class="screen-header">
     <div class="screen-title">Compte à rebours</div>
     <div class="screen-sub">les moments importants</div>
   </div>
- 
+
   <div class="countdown-list" id="countdown-list"></div>
- 
+
   <div class="add-countdown-form" style="margin-top:16px">
     <input class="form-input" id="cd-name" type="text" placeholder="Nom (ex: Notre anniversaire…)" maxlength="40">
     <input class="form-input" id="cd-date" type="date">
     <button class="btn-add" onclick="addCountdown()">Ajouter ✦</button>
   </div>
 </div>
- 
+
 <!-- ════════ GALLERY SCREEN ════════ -->
 <div class="screen" id="screen-gallery">
-  <div class="screen-header" style="max-width:380px;padding:0 20px">
+  <div class="screen-header">
     <div class="screen-title">Nos souvenirs</div>
     <div class="screen-sub">galerie privée</div>
   </div>
- 
+
   <div class="gallery-grid" id="gallery-grid"></div>
- 
+
   <div class="gallery-add-area">
     <label class="gallery-upload" for="photo-upload">
       + Ajouter une photo
@@ -1021,21 +145,39 @@ body {
     </div>
   </div>
 </div>
- 
+
+<!-- ════════ LETTER SCREEN ════════ -->
+<div class="screen" id="screen-letter">
+  <div class="screen-header">
+    <div class="screen-title">La Lettre</div>
+    <div class="screen-sub">pour toi, toujours</div>
+  </div>
+
+  <div class="letter-wrapper">
+    <div class="letter-card">
+      <div class="letter-salutation" id="letter-salutation">Nune,</div>
+      <div class="letter-body" id="letter-body-text"></div>
+      <div class="letter-signature" id="letter-signature">— toujours, quelqu'un qui fait attention ✦</div>
+    </div>
+    <div class="letter-seal">💌</div>
+    <div class="letter-meta" id="letter-meta">Pour toi, pour toujours.</div>
+  </div>
+</div>
+
 <!-- ════════ HISTORY SCREEN ════════ -->
 <div class="screen" id="screen-history">
-  <div class="screen-header" style="max-width:380px;padding:0 20px">
+  <div class="screen-header">
     <div class="screen-title">Historique</div>
     <div class="screen-sub">tous tes signaux</div>
   </div>
- 
+
   <div class="history-list" id="history-list"></div>
- 
+
   <div class="history-clear">
     <button class="btn-clear" onclick="clearHistory()">Effacer l'historique</button>
   </div>
 </div>
- 
+
 <!-- ════════ NAV TABS ════════ -->
 <nav class="nav-tabs">
   <button class="nav-tab active" id="tab-home" onclick="switchTab('home')">
@@ -1050,16 +192,20 @@ body {
     <span class="tab-icon">🌸</span>
     <span>Souvenirs</span>
   </button>
+  <button class="nav-tab" id="tab-letter" onclick="switchTab('letter')">
+    <span class="tab-icon">💌</span>
+    <span>Lettre</span>
+  </button>
   <button class="nav-tab" id="tab-history" onclick="switchTab('history')">
     <span class="tab-icon">🌙</span>
-    <span>Historique</span>
+    <span>Journal</span>
   </button>
 </nav>
- 
+
 <audio id="music" loop>
   <source src="lo-fi.mp3" type="audio/mp3">
 </audio>
- 
+
 <svg width="0" height="0" style="position:absolute">
   <defs>
     <filter id="glow">
@@ -1068,581 +214,7 @@ body {
     </filter>
   </defs>
 </svg>
- 
-<script>
-/* ══ STATE ══ */
-let count = parseInt(localStorage.getItem('signal-count') || '0');
-let musicPlaying = false;
-let secretModeCount = 0;
-const CIRCUMFERENCE = 2 * Math.PI * 22;
- 
-/* ══ SIGNALS (français) ══ */
-const signals = [
-  { emoji: "🌙", text: "Quelque chose de doux s'aligne ce soir.", mood: "calme" },
-  { emoji: "✨", text: "23 est là, dans l'espace entre deux pensées.", mood: "mystère" },
-  { emoji: "💫", text: "Tu remarques les coïncidences parce qu'elles t'appartiennent.", mood: "magie" },
-  { emoji: "🌸", text: "Un moment ordinaire vient de devenir rare.", mood: "douceur" },
-  { emoji: "🔮", text: "Ce n'est pas le hasard. Rien de tout ça ne l'est.", mood: "destin" },
-  { emoji: "💖", text: "Quelqu'un pense fort à toi en ce moment.", mood: "amour" },
-  { emoji: "🌿", text: "Respire. Ce signal t'a trouvée.", mood: "sérénité" },
-  { emoji: "⭐", text: "Les étoiles ont de la mémoire. Et tu y es écrite.", mood: "cosmos" },
-  { emoji: "🕊️", text: "La légèreté. C'est ce que tu mérites.", mood: "paix" },
-  { emoji: "🌊", text: "Les vagues ne choisissent pas où elles arrivent, et pourtant…", mood: "hasard" },
-  { emoji: "🦋", text: "Une transformation silencieuse est en cours.", mood: "éveil" },
-  { emoji: "🌙", text: "Ce soir, le ciel a quelque chose de réservé pour toi.", mood: "nuit" },
-  { emoji: "💛", text: "Tu es exactement là où tu dois être.", mood: "confiance" },
-  { emoji: "🎴", text: "Chapitre 2 : le système commence à te reconnaître…", mood: "mystère" },
-  { emoji: "🌺", text: "Chaque signal est la preuve que tu es vue.", mood: "présence" },
-  { emoji: "✦", text: "Quelque chose d'invisible tient ta main.", mood: "connexion" },
-  { emoji: "🌙", text: "La nuit apporte la sagesse, et toi tu portes la lumière.", mood: "lumière" },
-  { emoji: "💌", text: "Un message a voyagé loin pour te rejoindre.", mood: "amour" },
-  { emoji: "🫧", text: "Légèreté totale. Tout ce qui est lourd peut partir.", mood: "libération" },
-  { emoji: "🌟", text: "Approche finale… le 23 est tout près.", mood: "anticipation" },
-  { emoji: "🔮", text: "Ce n'était pas 23 taps.", mood: "révélation" },
-  { emoji: "💫", text: "C'était quelqu'un qui faisait attention.", mood: "amour" },
-  { emoji: "🌹", text: "Dans le silence entre nous, quelque chose parle.", mood: "intimité" },
-  { emoji: "💎", text: "Tu brilles même quand tu ne le sens pas.", mood: "force" },
-  { emoji: "🌅", text: "Chaque matin tu te lèves est une petite victoire.", mood: "courage" },
-  { emoji: "🎵", text: "Il y a une mélodie qui ne joue que pour toi.", mood: "douceur" },
-  { emoji: "🏡", text: "Tu es le foyer de quelqu'un.", mood: "appartenance" },
-  { emoji: "🫀", text: "Ce battement-là, c'est à cause de toi.", mood: "amour" },
-];
- 
-const unlockMessages = [
-  `Nune…\n\nchaque signal était une façon de te dire quelque chose\nsans le dire tout à fait.\n\nMaintenant tu sais. 💖`,
-  `Tu es arrivée au signal 23.\n\nEt moi j'ai arrêté de compter depuis longtemps,\nparce que chaque moment avec toi\nn'a pas besoin de chiffre.`,
-  `23 signaux.\n\nEt chacun d'eux portait le même message :\nje suis là, je pense à toi,\net tu comptes enormément. 🌙`,
-];
- 
-const chatResponses = {
-  "hello|salut|hey|bonjour|coucou": { emoji: "💖", text: "Bonjour Nune… le signal t'attendait.", mood: "présence" },
-  "23": { emoji: "🔮", text: "Tu le remarques encore. Ce n'est pas anodin.", mood: "mystère" },
-  "amour|love|je t'aime|t'aime": { emoji: "💌", text: "Ce mot porte un signal très fort.", mood: "amour" },
-  "qui|who": { emoji: "✦", text: "Juste un système doux construit pour toi.", mood: "mystère" },
-  "triste|sad|mal|déprimée": { emoji: "🌙", text: "Ce n'est que temporaire. Tu es plus forte que ce soir.", mood: "sérénité" },
-  "belle|beautiful|jolie": { emoji: "🌸", text: "Le signal confirme : absolument.", mood: "douceur" },
-  "merci|thank": { emoji: "💛", text: "C'est toi le signal le plus fort ici.", mood: "lumière" },
-  "secret": { emoji: "🔒", text: "Tu as trouvé le mot. Tape ✦ pour aller plus loin.", mood: "mystère" },
-  "fatiguée|tired|épuisée": { emoji: "🌿", text: "Pose-toi. Tu as le droit de souffler.", mood: "repos" },
-  "manque|miss": { emoji: "💫", text: "La distance ne change rien à ce qui est réel.", mood: "connexion" },
-};
- 
-/* ══ MESSAGE DU JOUR ══ */
-function getDailySignal() {
-  const today = new Date().toDateString();
-  const saved = localStorage.getItem('daily-signal-date');
-  if (saved === today) {
-    const idx = parseInt(localStorage.getItem('daily-signal-idx') || '0');
-    return signals[idx % signals.length];
-  }
-  const idx = Math.floor(Math.random() * signals.length);
-  localStorage.setItem('daily-signal-date', today);
-  localStorage.setItem('daily-signal-idx', idx.toString());
-  return signals[idx];
-}
- 
-/* ══ STARS ══ */
-(function() {
-  const canvas = document.getElementById('stars-canvas');
-  const ctx = canvas.getContext('2d');
-  let stars = [];
-  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-  function initStars() {
-    stars = [];
-    for (let i = 0; i < 80; i++) {
-      stars.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-        r: Math.random() * 1.4 + 0.3, alpha: Math.random() * 0.5 + 0.1,
-        speed: Math.random() * 0.3 + 0.05, drift: (Math.random() - 0.5) * 0.2,
-        twinkle: Math.random() * Math.PI * 2 });
-    }
-  }
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    stars.forEach(s => {
-      s.twinkle += 0.02;
-      const a = s.alpha * (0.6 + 0.4 * Math.sin(s.twinkle));
-      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,220,240,${a})`; ctx.fill();
-      s.y -= s.speed; s.x += s.drift;
-      if (s.y < -5) { s.y = canvas.height + 5; s.x = Math.random() * canvas.width; }
-      if (s.x < -5) s.x = canvas.width + 5;
-      if (s.x > canvas.width + 5) s.x = -5;
-    });
-    requestAnimationFrame(draw);
-  }
-  resize(); initStars(); draw();
-  window.addEventListener('resize', () => { resize(); initStars(); });
-})();
- 
-/* ══ RING ══ */
-function updateRing() {
-  const fill = document.getElementById('ring-fill');
-  const progress = Math.min(count / 23, 1);
-  fill.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
-  document.getElementById('count-display').textContent = count;
-}
- 
-/* ══ TYPING ══ */
-function typeText(text, el, speed = 22) {
-  el.innerHTML = "";
-  let i = 0;
-  const interval = setInterval(() => {
-    el.innerHTML += text[i] === '\n' ? '<br>' : text[i];
-    i++;
-    if (i >= text.length) clearInterval(interval);
-  }, speed);
-}
- 
-/* ══ TIME MESSAGE ══ */
-function getTimeMessage() {
-  const h = new Date().getHours();
-  if (h < 6)  return { emoji: "🌙", text: "Tu es encore debout… Le signal veille avec toi.", mood: "nuit" };
-  if (h < 12) return { emoji: "☀️", text: "Bon matin Nune. Une belle journée commence.", mood: "douceur" };
-  if (h < 18) return { emoji: "🌤️", text: "Bel après-midi. Le soleil t'a vue.", mood: "lumière" };
-  return { emoji: "🌙", text: "Bonne soirée Nune. Tu mérites une belle nuit.", mood: "calme" };
-}
- 
-/* ══ DATE MESSAGE ══ */
-function getDateMessage() {
-  const d = new Date(); const day = d.getDate(), month = d.getMonth() + 1;
-  if (day === 23) return { emoji: "🎯", text: "Aujourd'hui c'est le 23. Le signal est au maximum.", mood: "mystère" };
-  if (day === 14 && month === 2) return { emoji: "💝", text: "La Saint-Valentin. Tous les signaux convergent vers toi.", mood: "amour" };
-  return null;
-}
- 
-/* ══ PARTICLES ══ */
-const PARTICLES = ["💫", "✨", "🌸", "⭐", "💖", "✦", "🫧", "💛"];
-function spawnParticles(x, y) {
-  const n = 5 + Math.floor(Math.random() * 4);
-  for (let i = 0; i < n; i++) {
-    setTimeout(() => {
-      const p = document.createElement('div');
-      p.className = 'particle';
-      p.textContent = PARTICLES[Math.floor(Math.random() * PARTICLES.length)];
-      p.style.left = (x + (Math.random() - 0.5) * 80) + 'px';
-      p.style.top = (y + (Math.random() - 0.5) * 40) + 'px';
-      document.body.appendChild(p);
-      setTimeout(() => p.remove(), 1500);
-    }, i * 60);
-  }
-}
- 
-/* ══ RIPPLE ══ */
-function spawnRipple(e, card) {
-  const rect = card.getBoundingClientRect();
-  const x = (e?.clientX ?? rect.left + rect.width/2) - rect.left;
-  const y = (e?.clientY ?? rect.top + rect.height/2) - rect.top;
-  const rip = document.createElement('span');
-  rip.className = 'ripple';
-  rip.style.left = x + 'px'; rip.style.top = y + 'px';
-  rip.style.width = rip.style.height = '60px';
-  rip.style.marginLeft = rip.style.marginTop = '-30px';
-  card.appendChild(rip);
-  setTimeout(() => rip.remove(), 800);
-}
- 
-/* ══ TOAST ══ */
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2800);
-}
- 
-/* ══ SET CARD ══ */
-function setCard(sig) {
-  document.getElementById('card-emoji').textContent = sig.emoji;
-  typeText(sig.text, document.getElementById('card-text'));
-  const tag = document.getElementById('mood-tag');
-  tag.textContent = sig.mood;
-  tag.classList.add('visible');
-}
- 
-/* ══ VIBRATE ══ */
-function vibrate(pattern = [30]) {
-  if (navigator.vibrate) navigator.vibrate(pattern);
-}
- 
-/* ══ HISTORY ══ */
-function getHistory() {
-  try { return JSON.parse(localStorage.getItem('signal-history') || '[]'); } catch { return []; }
-}
-function saveHistory() {
-  localStorage.setItem('signal-history', JSON.stringify(signalHistory));
-}
-let signalHistory = getHistory();
- 
-function addToHistory(sig) {
-  signalHistory.unshift({
-    emoji: sig.emoji,
-    text: sig.text,
-    mood: sig.mood,
-    time: new Date().toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-  });
-  if (signalHistory.length > 50) signalHistory.pop();
-  saveHistory();
-}
- 
-function renderHistory() {
-  const list = document.getElementById('history-list');
-  if (!signalHistory.length) {
-    list.innerHTML = '<div class="history-empty">Aucun signal encore reçu.<br>Commence à taper sur la carte ✦</div>';
-    return;
-  }
-  list.innerHTML = signalHistory.map(s => `
-    <div class="history-item">
-      <div class="history-emoji">${s.emoji}</div>
-      <div class="history-body">
-        <div class="history-text">${s.text}</div>
-        <div class="history-meta">${s.mood} · ${s.time}</div>
-      </div>
-    </div>
-  `).join('');
-}
- 
-function clearHistory() {
-  signalHistory = [];
-  saveHistory();
-  renderHistory();
-  showToast("Historique effacé 🌙");
-}
- 
-/* ══ TAP ══ */
-function tap(e) {
-  count++;
-  localStorage.setItem('signal-count', count.toString());
-  vibrate([20, 10, 20]);
-  updateRing();
- 
-  const card = document.getElementById('card');
-  if (e) spawnRipple(e, card);
-  const rect = card.getBoundingClientRect();
-  spawnParticles(rect.left + rect.width/2, rect.top + rect.height/2);
- 
-  let sig;
-  const dateMsg = getDateMessage();
- 
-  if (count === 5) sig = getTimeMessage();
-  else if (count === 10 && dateMsg) sig = dateMsg;
-  else if (count === 23) {
-    sig = { emoji: "💌", text: "Signal 23 atteint…", mood: "révélation" };
-    setTimeout(() => {
-      const msg = unlockMessages[Math.floor(Math.random() * unlockMessages.length)];
-      document.getElementById('unlock-msg').innerHTML = msg.replace(/\n/g, '<br>');
-      // Surprise photo
-      const photos = getPhotos();
-      const photoContainer = document.getElementById('unlock-photo-container');
-      if (photos.length > 0) {
-        const surprise = photos[Math.floor(Math.random() * photos.length)];
-        document.getElementById('unlock-photo-img').src = surprise.src;
-        photoContainer.classList.add('has-photo');
-      } else {
-        photoContainer.classList.remove('has-photo');
-      }
-      document.getElementById('unlock-screen').classList.add('active');
-      vibrate([50, 30, 50, 30, 100]);
-    }, 800);
-  } else {
-    const pool = signals.filter((_, i) => i !== (count - 2));
-    sig = pool[Math.floor(Math.random() * pool.length)];
-  }
- 
-  if (sig) {
-    setCard(sig);
-    addToHistory(sig);
-  }
- 
-  if (count === 7) showToast("7 signaux… tu es dans le rythme ✨");
-  if (count === 11) showToast("Onze. Un nombre oublié, mais pas ce soir.");
-  if (count === 17) showToast("17 signaux. Le 23 approche…");
-}
- 
-function closeUnlock() {
-  document.getElementById('unlock-screen').classList.remove('active');
-  count = 0;
-  localStorage.setItem('signal-count', '0');
-  updateRing();
-  showToast("Le cycle recommence… 🌙");
-}
- 
-/* ══ SEND ══ */
-function send() {
-  const val = document.getElementById('input').value.trim().toLowerCase();
-  if (!val) return;
-  vibrate([15]);
-  let match = null;
-  for (const [pattern, response] of Object.entries(chatResponses)) {
-    if (new RegExp(pattern).test(val)) { match = response; break; }
-  }
-  if (!match) match = { emoji: "🌙", text: "Je reçois ton signal… il voyage.", mood: "écoute" };
-  setCard(match);
-  addToHistory(match);
-  document.getElementById('input').value = "";
-}
- 
-/* ══ MUSIC ══ */
-function toggleMusic() {
-  const m = document.getElementById('music');
-  const bars = document.getElementById('music-bars');
-  m.volume = 0.35;
-  if (m.paused) {
-    m.play().catch(() => showToast("Ajoute un fichier lo-fi.mp3 🎵"));
-    musicPlaying = true;
-    bars.classList.add('playing');
-    document.getElementById('music-icon').textContent = '⏸';
-  } else {
-    m.pause();
-    musicPlaying = false;
-    bars.classList.remove('playing');
-    document.getElementById('music-icon').textContent = '🎵';
-  }
-}
- 
-/* ══ SECRET MODE ══ */
-function secretMode() {
-  secretModeCount++;
-  if (secretModeCount === 3) {
-    showToast("Mode secret activé 🔮");
-    setCard({ emoji: "🔮", text: "Tu as trouvé le signal caché.\nCelui-là, personne ne le voit sauf toi.", mood: "secret" });
-    secretModeCount = 0;
-  } else {
-    showToast(["Un signal…", "Encore un…"][secretModeCount - 1] || "");
-  }
-}
- 
-/* ══ TABS ══ */
-function switchTab(name) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('screen-' + name).classList.add('active');
-  document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'history') renderHistory();
-  if (name === 'countdown') renderCountdowns();
-  if (name === 'gallery') renderGallery();
-}
- 
-/* ══ COUNTDOWNS ══ */
-function getCountdowns() {
-  try { return JSON.parse(localStorage.getItem('countdowns') || '[]'); } catch { return []; }
-}
-function saveCountdowns(list) { localStorage.setItem('countdowns', JSON.stringify(list)); }
- 
-function addCountdown() {
-  const name = document.getElementById('cd-name').value.trim();
-  const date = document.getElementById('cd-date').value;
-  if (!name || !date) { showToast("Remplis les deux champs ✦"); return; }
-  const list = getCountdowns();
-  list.push({ id: Date.now(), name, date });
-  saveCountdowns(list);
-  document.getElementById('cd-name').value = '';
-  document.getElementById('cd-date').value = '';
-  renderCountdowns();
-  showToast("Date ajoutée 🗓");
-}
- 
-function deleteCountdown(id) {
-  const list = getCountdowns().filter(c => c.id !== id);
-  saveCountdowns(list);
-  renderCountdowns();
-}
- 
-function getTimeLeft(dateStr) {
-  const now = new Date();
-  const target = new Date(dateStr + 'T00:00:00');
-  const diff = target - now;
-  if (diff < 0) return null;
-  const days = Math.floor(diff / 86400000);
-  const hours = Math.floor((diff % 86400000) / 3600000);
-  const mins = Math.floor((diff % 3600000) / 60000);
-  const secs = Math.floor((diff % 60000) / 1000);
-  return { days, hours, mins, secs };
-}
- 
-function renderCountdowns() {
-  const list = getCountdowns();
-  const el = document.getElementById('countdown-list');
-  if (!list.length) {
-    el.innerHTML = '<div style="text-align:center;opacity:0.35;font-style:italic;font-size:14px;padding:30px 0">Aucune date encore…<br>Ajoute un moment important ✦</div>';
-    return;
-  }
-  el.innerHTML = list.map(c => {
-    const tl = getTimeLeft(c.date);
-    if (!tl) {
-      return `<div class="countdown-card">
-        <div class="countdown-card-top">
-          <div class="countdown-name">${c.name}</div>
-          <button class="countdown-delete" onclick="deleteCountdown(${c.id})">✕</button>
-        </div>
-        <div class="countdown-past">Ce moment est passé ✨</div>
-      </div>`;
-    }
-    return `<div class="countdown-card" data-id="${c.id}">
-      <div class="countdown-card-top">
-        <div class="countdown-name">${c.name}</div>
-        <button class="countdown-delete" onclick="deleteCountdown(${c.id})">✕</button>
-      </div>
-      <div class="countdown-units">
-        <div class="cd-unit"><div class="cd-num" id="cd-d-${c.id}">${tl.days}</div><div class="cd-label">jours</div></div>
-        <div class="cd-unit"><div class="cd-num" id="cd-h-${c.id}">${String(tl.hours).padStart(2,'0')}</div><div class="cd-label">heures</div></div>
-        <div class="cd-unit"><div class="cd-num" id="cd-m-${c.id}">${String(tl.mins).padStart(2,'0')}</div><div class="cd-label">min</div></div>
-        <div class="cd-unit"><div class="cd-num" id="cd-s-${c.id}">${String(tl.secs).padStart(2,'0')}</div><div class="cd-label">sec</div></div>
-      </div>
-    </div>`;
-  }).join('');
-}
- 
-// Live countdown tick
-setInterval(() => {
-  const list = getCountdowns();
-  list.forEach(c => {
-    const tl = getTimeLeft(c.date);
-    if (!tl) return;
-    const ds = document.getElementById('cd-d-' + c.id);
-    const hs = document.getElementById('cd-h-' + c.id);
-    const ms = document.getElementById('cd-m-' + c.id);
-    const ss = document.getElementById('cd-s-' + c.id);
-    if (ds) ds.textContent = tl.days;
-    if (hs) hs.textContent = String(tl.hours).padStart(2,'0');
-    if (ms) ms.textContent = String(tl.mins).padStart(2,'0');
-    if (ss) ss.textContent = String(tl.secs).padStart(2,'0');
-  });
-}, 1000);
- 
-/* ══ GALLERY ══ */
-function getPhotos() {
-  try { return JSON.parse(localStorage.getItem('gallery-photos') || '[]'); } catch { return []; }
-}
-function savePhotos(list) { localStorage.setItem('gallery-photos', JSON.stringify(list)); }
- 
-function handlePhotoUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const caption = document.getElementById('photo-caption').value.trim() || '';
-    const photos = getPhotos();
-    photos.push({ id: Date.now(), src: e.target.result, caption });
-    savePhotos(photos);
-    document.getElementById('photo-caption').value = '';
-    event.target.value = '';
-    renderGallery();
-    showToast("Photo ajoutée 🌸");
-  };
-  reader.readAsDataURL(file);
-}
- 
-function deletePhoto(id) {
-  const photos = getPhotos().filter(p => p.id !== id);
-  savePhotos(photos);
-  renderGallery();
-}
- 
-function openLightbox(src, caption) {
-  document.getElementById('lightbox-img').src = src;
-  document.getElementById('lightbox-caption').textContent = caption || '';
-  document.getElementById('lightbox').classList.add('open');
-}
-function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('open');
-}
- 
-function renderGallery() {
-  const photos = getPhotos();
-  const grid = document.getElementById('gallery-grid');
-  let html = '';
-  if (!photos.length) {
-    html += '<div class="gallery-empty">Aucune photo encore…<br>Ajoute vos souvenirs ici ✦</div>';
-  } else {
-    html += photos.map(p => `
-      <div class="gallery-item" onclick="openLightbox('${p.src.replace(/'/g,"\\'")}', '${(p.caption||'').replace(/'/g,"\\'")}')">
-        <img src="${p.src}" alt="${p.caption || ''}">
-        <div class="gallery-caption">${p.caption || ''}</div>
-        <button class="gallery-delete" onclick="event.stopPropagation();deletePhoto(${p.id})">✕</button>
-      </div>
-    `).join('');
-  }
-  // Surprise lock notice
-  if (count < 23) {
-    html += `<div class="surprise-lock"><span>🔒</span> Photo surprise au signal 23</div>`;
-  }
-  grid.innerHTML = html;
-}
- 
-/* ══ NOTIFICATIONS ══ */
-function requestNotifPermission() {
-  if (!('Notification' in window)) { showToast("Notifications non supportées 🙁"); return; }
-  Notification.requestPermission().then(perm => {
-    if (perm === 'granted') {
-      localStorage.setItem('notif-granted', '1');
-      document.getElementById('notif-banner').classList.remove('show');
-      showToast("Notifications activées 💌");
-      scheduleNotifications();
-    } else {
-      showToast("Permission refusée 🙁");
-    }
-  });
-}
- 
-function scheduleNotifications() {
-  if (Notification.permission !== 'granted') return;
-  const messages = [
-    "Je pense à toi. ✦",
-    "Un signal t'attend. 💫",
-    "Le 23 se souvient de toi. 🌙",
-    "Quelqu'un t'envoie de la douceur. 💖",
-    "Bonne journée Nune. ✨",
-  ];
-  // Send one after 3 hours if not already sent today
-  const lastNotif = localStorage.getItem('last-notif-day');
-  const today = new Date().toDateString();
-  if (lastNotif !== today) {
-    setTimeout(() => {
-      if (Notification.permission === 'granted') {
-        new Notification("Twenty Three 💌", {
-          body: messages[Math.floor(Math.random() * messages.length)],
-          icon: "https://cdn-icons-png.flaticon.com/512/833/833472.png",
-        });
-        localStorage.setItem('last-notif-day', today);
-      }
-    }, 3 * 60 * 60 * 1000); // 3h
-  }
-}
- 
-/* ══ DAILY BADGE ══ */
-function initDailyBadge() {
-  const sig = getDailySignal();
-  const badge = document.getElementById('daily-badge');
-  document.getElementById('daily-badge-text').textContent = 'Signal du jour : ' + sig.mood;
-  badge.classList.add('show');
-  badge.onclick = () => {
-    setCard(sig);
-    addToHistory(sig);
-    showToast("Signal du jour ✦");
-    vibrate([20]);
-  };
-}
- 
-/* ══ NOTIF BANNER ══ */
-function checkNotifBanner() {
-  if (!('Notification' in window)) return;
-  if (localStorage.getItem('notif-granted')) return;
-  if (Notification.permission === 'default') {
-    document.getElementById('notif-banner').classList.add('show');
-  }
-}
- 
-/* ══ PWA ══ */
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
-}
- 
-/* ══ INIT ══ */
-updateRing();
-initDailyBadge();
-checkNotifBanner();
-if (localStorage.getItem('notif-granted') && Notification.permission === 'granted') {
-  scheduleNotifications();
-}
-</script>
+
+<script src="app.js"></script>
 </body>
 </html>
