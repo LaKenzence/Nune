@@ -1554,24 +1554,23 @@ body {
    NAVIGATION — SLIDE PUSH
 ════════════════════════════════ */
 
-/* Tous les sous-écrans partent à droite par défaut */
+/* Subscreens vivent hors de l'écran à droite */
 .screen.subscreen {
+  display: flex !important;
   transform: translateX(100%);
   transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex !important; /* toujours dans le DOM */
   pointer-events: none;
-  visibility: hidden;
+  z-index: 20;
 }
 .screen.subscreen.slide-in {
   transform: translateX(0);
   pointer-events: auto;
-  visibility: visible;
 }
 
-/* Quand un sous-écran est ouvert, le parent recule légèrement */
+/* Écran principal qui recule quand un subscreen s'ouvre */
 .screen.push-back {
-  transform: translateX(-30px) scale(0.98);
-  opacity: 0.7;
+  transform: translateX(-28px) scale(0.97);
+  opacity: 0.65;
   transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
               opacity 0.32s ease;
   pointer-events: none;
@@ -1588,13 +1587,13 @@ body {
   flex-shrink: 0;
 }
 .back-btn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   border: 1px solid var(--glass-border);
   background: var(--glass);
   color: var(--cream);
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1603,6 +1602,7 @@ body {
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s, transform 0.1s;
   flex-shrink: 0;
+  line-height: 1;
 }
 .back-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.15); }
 
@@ -1625,10 +1625,9 @@ body {
 }
 
 /* Nav se cache quand sous-écran ouvert */
-.nav-tabs.hidden {
-  transform: translateY(100%);
-  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-}
 .nav-tabs {
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.nav-tabs.hidden {
+  transform: translateY(100%);
 }
