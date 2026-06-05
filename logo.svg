@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a1045"/>
+      <stop offset="100%" stop-color="#1a1033"/>
+    </linearGradient>
+    <linearGradient id="letter" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8bbd0"/>
+      <stop offset="40%" stop-color="#f06292"/>
+      <stop offset="100%" stop-color="#ffd54f"/>
+    </linearGradient>
+    <linearGradient id="dot1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffd54f"/>
+      <stop offset="100%" stop-color="#ffb300"/>
+    </linearGradient>
+    <linearGradient id="dot2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f06292"/>
+      <stop offset="100%" stop-color="#c2185b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Subtle inner glow ring -->
+  <rect x="16" y="16" width="480" height="480" rx="100" fill="none" stroke="rgba(206,147,216,0.15)" stroke-width="2"/>
+
+  <!-- N letter — italic serif, hand-crafted paths for elegance -->
+  <!-- Left vertical stroke -->
+  <rect x="132" y="128" width="44" height="256" rx="8" fill="url(#letter)"/>
+  <!-- Right vertical stroke -->
+  <rect x="336" y="128" width="44" height="256" rx="8" fill="url(#letter)"/>
+  <!-- Diagonal stroke (top-left to bottom-right) -->
+  <polygon points="132,128 176,128 380,352 380,384 336,384 132,160" fill="url(#letter)"/>
+
+  <!-- Decorative stars -->
+  <!-- Large star top-right -->
+  <circle cx="390" cy="118" r="18" fill="url(#dot1)" opacity="0.95"/>
+  <!-- Medium star -->
+  <circle cx="424" cy="168" r="11" fill="url(#dot2)" opacity="0.8"/>
+  <!-- Small star -->
+  <circle cx="372" cy="88" r="7" fill="rgba(206,147,216,0.9)"/>
+  <!-- Tiny sparkle dots -->
+  <circle cx="410" cy="140" r="4" fill="rgba(255,213,79,0.6)"/>
+  <circle cx="395" cy="155" r="3" fill="rgba(240,98,146,0.5)"/>
+
+  <!-- Bottom-left subtle accent -->
+  <circle cx="102" cy="400" r="8" fill="rgba(206,147,216,0.35)"/>
+  <circle cx="118" cy="420" r="4.5" fill="rgba(255,213,79,0.25)"/>
+</svg>
