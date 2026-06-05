@@ -573,19 +573,33 @@ function secretMode() {
 /* ══════════════════════════════════════════
    TABS
 ══════════════════════════════════════════ */
+// Screens accessible from "Plus" tab — keep "Plus" highlighted when inside them
+const MORE_CHILDREN = ['gallery', 'letter', 'countdown', 'history'];
+
 function switchTab(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('screen-' + name).classList.add('active');
-  document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'history')  renderHistory();
+
+  const screenEl = document.getElementById('screen-' + name);
+  if (screenEl) screenEl.classList.add('active');
+
+  // Highlight the right tab
+  const tabEl = document.getElementById('tab-' + name);
+  if (tabEl) {
+    tabEl.classList.add('active');
+  } else if (MORE_CHILDREN.includes(name)) {
+    // Sub-screens of "Plus" → keep Plus tab highlighted
+    document.getElementById('tab-more').classList.add('active');
+  }
+
+  if (name === 'history')   renderHistory();
   if (name === 'countdown') renderCountdowns();
-  if (name === 'gallery')  renderGallery();
-  if (name === 'letter')   renderLetter();
-  if (name === 'mood')     renderMoodScreen();
-  if (name === 'capsule')  renderCapsules();
-  if (name === 'map')      renderMap();
-  if (name === 'more')     renderMoreScreen();
+  if (name === 'gallery')   renderGallery();
+  if (name === 'letter')    renderLetter();
+  if (name === 'mood')      renderMoodScreen();
+  if (name === 'capsule')   renderCapsules();
+  if (name === 'map')       renderMap();
+  if (name === 'more')      renderMoreScreen();
 }
 
 /* ══════════════════════════════════════════
@@ -1178,38 +1192,3 @@ if (localStorage.getItem('notif-granted') && Notification.permission === 'grante
 
 // Onboarding — slight delay so the app renders first
 setTimeout(checkOnboarding, 300);
-
-/* ══════════════════════════════════════════
-   MORE SCREEN — quick links to other screens
-══════════════════════════════════════════ */
-// Patch renderMoreScreen to also show quick-access links
-const _renderMoreScreen = renderMoreScreen;
-function renderMoreScreen() {
-  _renderMoreScreen();
-  // inject quick links if not already there
-  const screen = document.getElementById('screen-more');
-  if (!screen || screen.querySelector('.more-links')) return;
-  const links = document.createElement('div');
-  links.className = 'more-links';
-  links.style.cssText = 'width:100%;max-width:380px;padding:0 20px;margin-top:4px;display:flex;flex-direction:column;gap:8px;';
-  links.innerHTML = `
-    <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;opacity:0.35;margin-bottom:4px">Autres sections</div>
-    ${[
-      ['screen-gallery',   '🌸', 'Nos souvenirs',     'galerie privée'],
-      ['screen-letter',    '💌', 'La Lettre',          'pour toi, toujours'],
-      ['screen-countdown', '🗓', 'Compte à rebours',   'les moments importants'],
-      ['screen-history',   '🌙', 'Historique',         'tous tes signaux'],
-    ].map(([screen, icon, title, sub]) => `
-      <button onclick="switchTab('${screen.replace('screen-','')}');this.closest('.screen').classList.remove('active');document.getElementById('tab-more').classList.remove('active')"
-        style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--glass);border:1px solid var(--glass-border);border-radius:18px;color:var(--cream);font-family:'DM Sans',sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent;text-align:left;backdrop-filter:blur(10px);">
-        <span style="font-size:22px">${icon}</span>
-        <div>
-          <div style="font-size:14px;font-weight:500">${title}</div>
-          <div style="font-size:11px;opacity:0.35;margin-top:2px;letter-spacing:0.08em">${sub}</div>
-        </div>
-        <span style="margin-left:auto;opacity:0.25;font-size:16px">›</span>
-      </button>
-    `).join('')}
-  `;
-  screen.appendChild(links);
-}
