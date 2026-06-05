@@ -1549,3 +1549,86 @@ body {
 .more-nav-title { font-size: 15px; font-weight: 500; }
 .more-nav-sub { font-size: 11px; opacity: 0.35; margin-top: 2px; letter-spacing: 0.06em; }
 .more-nav-arrow { font-size: 20px; opacity: 0.25; margin-left: auto; }
+
+/* ════════════════════════════════
+   NAVIGATION — SLIDE PUSH
+════════════════════════════════ */
+
+/* Tous les sous-écrans partent à droite par défaut */
+.screen.subscreen {
+  transform: translateX(100%);
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex !important; /* toujours dans le DOM */
+  pointer-events: none;
+  visibility: hidden;
+}
+.screen.subscreen.slide-in {
+  transform: translateX(0);
+  pointer-events: auto;
+  visibility: visible;
+}
+
+/* Quand un sous-écran est ouvert, le parent recule légèrement */
+.screen.push-back {
+  transform: translateX(-30px) scale(0.98);
+  opacity: 0.7;
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.32s ease;
+  pointer-events: none;
+}
+
+/* Header du sous-écran avec bouton retour */
+.subscreen-header {
+  width: 100%;
+  max-width: 380px;
+  padding: 16px 20px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.back-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--cream);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+.back-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.15); }
+
+.subscreen-title-block { flex: 1; }
+.subscreen-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-weight: 400;
+  background: linear-gradient(135deg, #f8bbd0, var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.subscreen-sub {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  opacity: 0.35;
+  margin-top: 2px;
+}
+
+/* Nav se cache quand sous-écran ouvert */
+.nav-tabs.hidden {
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.nav-tabs {
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
