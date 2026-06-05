@@ -118,13 +118,16 @@
   </div>
 </div>
 
-<!-- ════════ COUNTDOWN ════════ -->
-<div class="screen" id="screen-countdown">
-  <div class="screen-header">
-    <div class="screen-title">Compte à rebours</div>
-    <div class="screen-sub">les moments importants</div>
+<!-- ════════ COUNTDOWN (subscreen) ════════ -->
+<div class="screen subscreen" id="screen-countdown">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="goBack()">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Compte à rebours</div>
+      <div class="subscreen-sub">les moments importants</div>
+    </div>
   </div>
-  <div class="countdown-list" id="countdown-list"></div>
+  <div class="countdown-list" id="countdown-list" style="margin-top:16px"></div>
   <div class="add-countdown-form" style="margin-top:16px">
     <input class="form-input" id="cd-name" type="text" placeholder="Nom (ex: Notre anniversaire…)" maxlength="40">
     <input class="form-input" id="cd-date" type="date">
@@ -132,13 +135,16 @@
   </div>
 </div>
 
-<!-- ════════ GALLERY ════════ -->
-<div class="screen" id="screen-gallery">
-  <div class="screen-header">
-    <div class="screen-title">Nos souvenirs</div>
-    <div class="screen-sub">galerie privée</div>
+<!-- ════════ GALLERY (subscreen) ════════ -->
+<div class="screen subscreen" id="screen-gallery">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="goBack()">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Nos souvenirs</div>
+      <div class="subscreen-sub">galerie privée</div>
+    </div>
   </div>
-  <div class="gallery-grid" id="gallery-grid"></div>
+  <div class="gallery-grid" id="gallery-grid" style="margin-top:12px"></div>
   <div class="gallery-add-area">
     <label class="gallery-upload" for="photo-upload">+ Ajouter une photo</label>
     <input type="file" id="photo-upload" accept="image/*" style="display:none" onchange="handlePhotoUpload(event)">
@@ -151,13 +157,16 @@
   </div>
 </div>
 
-<!-- ════════ LETTRE ════════ -->
-<div class="screen" id="screen-letter">
-  <div class="screen-header">
-    <div class="screen-title">La Lettre</div>
-    <div class="screen-sub">pour toi, toujours</div>
+<!-- ════════ LETTRE (subscreen) ════════ -->
+<div class="screen subscreen" id="screen-letter">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="goBack()">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">La Lettre</div>
+      <div class="subscreen-sub">pour toi, toujours</div>
+    </div>
   </div>
-  <div class="letter-wrapper">
+  <div class="letter-wrapper" style="margin-top:12px">
     <div class="letter-card">
       <div class="letter-salutation" id="letter-salutation">Nune,</div>
       <div class="letter-body" id="letter-body-text"></div>
@@ -292,13 +301,16 @@
   </div>
 </div>
 
-<!-- ════════ HISTORY ════════ -->
-<div class="screen" id="screen-history">
-  <div class="screen-header">
-    <div class="screen-title">Historique</div>
-    <div class="screen-sub">tous tes signaux</div>
+<!-- ════════ HISTORY (subscreen) ════════ -->
+<div class="screen subscreen" id="screen-history">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="goBack()">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Historique</div>
+      <div class="subscreen-sub">tous tes signaux</div>
+    </div>
   </div>
-  <div class="history-list" id="history-list"></div>
+  <div class="history-list" id="history-list" style="margin-top:12px"></div>
   <div class="history-clear">
     <button class="btn-clear" onclick="clearHistory()">Effacer l'historique</button>
   </div>
