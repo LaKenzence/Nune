@@ -10,11 +10,11 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
- 
+
 <div class="ambient"></div>
 <canvas id="stars-canvas"></canvas>
 <div class="toast" id="toast"></div>
- 
+
 <!-- ════════ ONBOARDING ════════ -->
 <div id="onboarding">
   <div id="onboarding-steps"></div>
@@ -25,20 +25,20 @@
     <div class="onboarding-dot"></div>
   </div>
 </div>
- 
+
 <!-- Birthday Banner -->
 <div class="birthday-banner" id="birthday-banner">
   <div class="birthday-banner-text" id="birthday-banner-text"></div>
   <button class="birthday-banner-close" onclick="closeBirthdayBanner()">✕</button>
 </div>
- 
+
 <!-- Lightbox -->
 <div id="lightbox" onclick="if(event.target===this)closeLightbox()">
   <img id="lightbox-img" src="" alt="">
   <div id="lightbox-caption"></div>
   <button id="lightbox-close" onclick="closeLightbox()">fermer ✦</button>
 </div>
- 
+
 <!-- Unlock Screen -->
 <div id="unlock-screen">
   <div class="unlock-hearts">💌</div>
@@ -50,7 +50,7 @@
   <div class="unlock-msg" id="unlock-msg"></div>
   <button class="unlock-close" onclick="closeUnlock()">continuer ✨</button>
 </div>
- 
+
 <!-- ════════ HOME ════════ -->
 <div class="screen active" id="screen-home">
   <div class="container">
@@ -58,12 +58,12 @@
       <h1>Twenty Three</h1>
       <div class="subtitle">signaux pour nune</div>
     </div>
- 
+
     <div class="daily-badge" id="daily-badge">
       <span>🌟</span>
       <span id="daily-badge-text">signal du jour</span>
     </div>
- 
+
     <div class="notif-banner" id="notif-banner">
       <div class="notif-card">
         <div class="notif-icon">💌</div>
@@ -74,7 +74,7 @@
         <button class="notif-btn" onclick="requestNotifPermission()">Activer</button>
       </div>
     </div>
- 
+
     <div class="signal-ring">
       <svg width="56" height="56" viewBox="0 0 56 56">
         <defs>
@@ -91,19 +91,19 @@
         <span>/ 23</span>
       </div>
     </div>
- 
+
     <div class="card" id="card" onclick="tap(event)">
       <div class="card-emoji" id="card-emoji">✨</div>
       <div class="card-text" id="card-text">Touche pour commencer les signaux…</div>
     </div>
- 
+
     <div class="mood-tag" id="mood-tag"></div>
- 
+
     <div class="input-row">
       <input id="input" type="text" placeholder="dis quelque chose…" onkeydown="if(event.key==='Enter')send()"/>
       <button class="btn-send" onclick="send()">→</button>
     </div>
- 
+
     <div class="actions">
       <button class="btn primary" onclick="tap(null)">Signal suivant ✦</button>
       <button class="btn btn-music-row" onclick="toggleMusic()">
@@ -117,7 +117,7 @@
     </div>
   </div>
 </div>
- 
+
 <!-- ════════ COUNTDOWN ════════ -->
 <div class="screen" id="screen-countdown">
   <div class="screen-header">
@@ -131,7 +131,7 @@
     <button class="btn-add" onclick="addCountdown()">Ajouter ✦</button>
   </div>
 </div>
- 
+
 <!-- ════════ GALLERY ════════ -->
 <div class="screen" id="screen-gallery">
   <div class="screen-header">
@@ -150,7 +150,7 @@
     </div>
   </div>
 </div>
- 
+
 <!-- ════════ LETTRE ════════ -->
 <div class="screen" id="screen-letter">
   <div class="screen-header">
@@ -167,27 +167,27 @@
     <div class="letter-meta" id="letter-meta"></div>
   </div>
 </div>
- 
+
 <!-- ════════ MOOD TRACKER ════════ -->
 <div class="screen" id="screen-mood">
   <div class="screen-header">
     <div class="screen-title">Comment tu vas ?</div>
     <div class="screen-sub">ton journal d'humeur</div>
   </div>
- 
+
   <div class="mood-today-card">
     <div class="mood-today-inner">
       <div id="mood-today-area"></div>
     </div>
   </div>
- 
+
   <div class="mood-history-section">
     <div class="mood-history-title">Les 28 derniers jours</div>
     <div class="mood-history-grid" id="mood-grid"></div>
     <div class="mood-stats-row" id="mood-stats"></div>
   </div>
 </div>
- 
+
 <!-- ════════ CAPSULE TEMPORELLE ════════ -->
 <div class="screen" id="screen-capsule">
   <div class="screen-header">
@@ -202,14 +202,14 @@
     <button class="btn-add" onclick="addCapsule()">Sceller la capsule 🔒</button>
   </div>
 </div>
- 
+
 <!-- ════════ CARTE DES LIEUX ════════ -->
 <div class="screen" id="screen-map">
   <div class="screen-header">
     <div class="screen-title">Notre carte</div>
     <div class="screen-sub">les lieux qui comptent</div>
   </div>
- 
+
   <div class="map-container">
     <div class="map-visual" id="map-visual">
       <div class="map-grid-lines"></div>
@@ -219,7 +219,7 @@
     </div>
     <div class="map-places-list" id="map-places-list"></div>
   </div>
- 
+
   <div class="map-add-form">
     <input class="form-input" id="place-name" type="text" placeholder="Nom du lieu (ex: Premier rendez-vous…)" maxlength="40">
     <input class="form-input" id="place-desc" type="text" placeholder="Un souvenir… (optionnel)" maxlength="80">
@@ -229,15 +229,51 @@
     <button class="btn-add" id="map-add-btn" onclick="addPlace()">Ajouter ce lieu ✦</button>
   </div>
 </div>
- 
-<!-- ════════ MORE (ambiances + citations) ════════ -->
+
+<!-- ════════ MORE (hub) ════════ -->
 <div class="screen" id="screen-more">
   <div class="screen-header">
-    <div class="screen-title">Ambiances & Citations</div>
-    <div class="screen-sub">pour chaque moment</div>
+    <div class="screen-title">Plus</div>
+    <div class="screen-sub">tout le reste ✦</div>
   </div>
- 
-  <!-- Citations -->
+
+  <!-- Accès rapide aux autres écrans -->
+  <div style="width:100%;max-width:380px;padding:0 20px;display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+    <button class="more-nav-card" onclick="switchTab('gallery')">
+      <span class="more-nav-icon">🌸</span>
+      <div class="more-nav-body">
+        <div class="more-nav-title">Nos souvenirs</div>
+        <div class="more-nav-sub">galerie privée de photos</div>
+      </div>
+      <span class="more-nav-arrow">›</span>
+    </button>
+    <button class="more-nav-card" onclick="switchTab('letter')">
+      <span class="more-nav-icon">💌</span>
+      <div class="more-nav-body">
+        <div class="more-nav-title">La Lettre</div>
+        <div class="more-nav-sub">pour toi, toujours</div>
+      </div>
+      <span class="more-nav-arrow">›</span>
+    </button>
+    <button class="more-nav-card" onclick="switchTab('countdown')">
+      <span class="more-nav-icon">🗓</span>
+      <div class="more-nav-body">
+        <div class="more-nav-title">Compte à rebours</div>
+        <div class="more-nav-sub">les moments importants</div>
+      </div>
+      <span class="more-nav-arrow">›</span>
+    </button>
+    <button class="more-nav-card" onclick="switchTab('history')">
+      <span class="more-nav-icon">🌙</span>
+      <div class="more-nav-body">
+        <div class="more-nav-title">Historique</div>
+        <div class="more-nav-sub">tous tes signaux reçus</div>
+      </div>
+      <span class="more-nav-arrow">›</span>
+    </button>
+  </div>
+
+  <!-- Citation du jour -->
   <div class="citation-card" style="margin-bottom:16px">
     <div class="citation-inner">
       <div class="citation-text" id="citation-text-el"></div>
@@ -245,7 +281,7 @@
       <button class="citation-refresh" onclick="nextCitation()" title="Suivante">↻</button>
     </div>
   </div>
- 
+
   <!-- Ambiances -->
   <div class="music-panel">
     <div class="screen-sub" style="margin-bottom:12px;padding:0">Ambiances musicales</div>
@@ -255,7 +291,7 @@
     </div>
   </div>
 </div>
- 
+
 <!-- ════════ HISTORY ════════ -->
 <div class="screen" id="screen-history">
   <div class="screen-header">
@@ -267,9 +303,9 @@
     <button class="btn-clear" onclick="clearHistory()">Effacer l'historique</button>
   </div>
 </div>
- 
-<!-- ════════ NAV ════════ -->
-<nav class="nav-tabs">
+
+<!-- ════════ NAV PRINCIPALE (5 onglets) ════════ -->
+<nav class="nav-tabs" id="nav-main">
   <button class="nav-tab active" id="tab-home" onclick="switchTab('home')">
     <span class="tab-icon">✦</span><span>Signaux</span>
   </button>
@@ -283,16 +319,12 @@
     <span class="tab-icon">🗺️</span><span>Carte</span>
   </button>
   <button class="nav-tab" id="tab-more" onclick="switchTab('more')">
-    <span class="tab-icon">💫</span><span>Plus</span>
+    <span class="tab-icon">••</span><span>Plus</span>
   </button>
 </nav>
- 
-<!-- Menu secondaire accessible depuis More ou swipe -->
-<!-- Gallery, Letter, Countdown, History sont dans le menu Plus -->
-<div id="secondary-menu" style="display:none"></div>
- 
+
 <audio id="music" loop><source src="lofi.mp3" type="audio/mp3"></audio>
- 
+
 <svg width="0" height="0" style="position:absolute">
   <defs>
     <filter id="glow">
@@ -301,7 +333,7 @@
     </filter>
   </defs>
 </svg>
- 
+
 <script src="app.js"></script>
 </body>
 </html>
