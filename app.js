@@ -573,33 +573,91 @@ function secretMode() {
 /* ══════════════════════════════════════════
    TABS
 ══════════════════════════════════════════ */
-// Screens accessible from "Plus" tab — keep "Plus" highlighted when inside them
+// Screens accessible from "Plus" tab — push navigation (slide from right)
 const MORE_CHILDREN = ['gallery', 'letter', 'countdown', 'history'];
+let navigationStack = []; // track where we came from
 
 function switchTab(name) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const isSubscreen = MORE_CHILDREN.includes(name);
+
+  if (isSubscreen) {
+    pushScreen(name);
+    return;
+  }
+
+  // Normal tab switch — reset any subscreen state
+  navigationStack = [];
+  document.querySelectorAll('.screen.subscreen').forEach(s => {
+    s.classList.remove('slide-in');
+  });
+  document.querySelectorAll('.screen:not(.subscreen)').forEach(s => {
+    s.classList.remove('active', 'push-back');
+  });
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
 
   const screenEl = document.getElementById('screen-' + name);
   if (screenEl) screenEl.classList.add('active');
 
-  // Highlight the right tab
   const tabEl = document.getElementById('tab-' + name);
-  if (tabEl) {
-    tabEl.classList.add('active');
-  } else if (MORE_CHILDREN.includes(name)) {
-    // Sub-screens of "Plus" → keep Plus tab highlighted
-    document.getElementById('tab-more').classList.add('active');
+  if (tabEl) tabEl.classList.add('active');
+
+  // Show nav
+  document.getElementById('nav-main').classList.remove('hidden');
+
+  if (name === 'mood')     renderMoodScreen();
+  if (name === 'capsule')  renderCapsules();
+  if (name === 'map')      renderMap();
+  if (name === 'more')     renderMoreScreen();
+}
+
+function pushScreen(name) {
+  // Find the current visible non-subscreen to push back
+  const currentMain = document.querySelector('.screen.active:not(.subscreen)') ||
+                      document.querySelector('.screen.subscreen.slide-in');
+
+  if (currentMain) {
+    currentMain.classList.add('push-back');
+    navigationStack.push(currentMain.id.replace('screen-', ''));
   }
 
+  const screenEl = document.getElementById('screen-' + name);
+  if (!screenEl) return;
+
+  // Small delay so push-back starts first
+  requestAnimationFrame(() => {
+    screenEl.classList.add('slide-in');
+  });
+
+  // Hide nav bar
+  document.getElementById('nav-main').classList.add('hidden');
+
+  // Render content
   if (name === 'history')   renderHistory();
   if (name === 'countdown') renderCountdowns();
   if (name === 'gallery')   renderGallery();
   if (name === 'letter')    renderLetter();
-  if (name === 'mood')      renderMoodScreen();
-  if (name === 'capsule')   renderCapsules();
-  if (name === 'map')       renderMap();
-  if (name === 'more')      renderMoreScreen();
+}
+
+function goBack() {
+  const currentSubscreen = document.querySelector('.screen.subscreen.slide-in');
+  if (!currentSubscreen) return;
+
+  // Slide current screen out to the right
+  currentSubscreen.classList.remove('slide-in');
+
+  // Restore previous screen
+  const prevName = navigationStack.pop();
+  if (prevName) {
+    const prevEl = document.getElementById('screen-' + prevName);
+    if (prevEl) {
+      prevEl.classList.remove('push-back');
+    }
+  }
+
+  // If stack empty, show nav again
+  if (navigationStack.length === 0) {
+    document.getElementById('nav-main').classList.remove('hidden');
+  }
 }
 
 /* ══════════════════════════════════════════
