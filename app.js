@@ -765,7 +765,10 @@ function renderMoodScreen() {
       <div class="mood-emojis">
         ${MOODS.map(m => `
           <button class="mood-btn ${todayEntry?.emoji === m.emoji ? 'selected' : ''}"
-            data-emoji="${m.emoji}" onclick="selectMood('${m.emoji}')">${m.emoji}</button>
+            data-emoji="${m.emoji}" onclick="selectMood('${m.emoji}')">
+            <span>${m.emoji}</span>
+            <span class="mood-btn-label">${m.label}</span>
+          </button>
         `).join('')}
       </div>
       <textarea class="mood-note-input" id="mood-note" placeholder="Un mot sur ta journée…" rows="2">${todayEntry?.note || ''}</textarea>
@@ -878,10 +881,11 @@ function renderCapsules() {
         </div>
         <div class="capsule-name">${c.name}</div>
         <div class="capsule-unlock-date">
-          ${isUnlocked ? 'Débloquée le ' : 'S\'ouvre le '}
+          ${isUnlocked ? '✦ Débloquée le ' : 'S\'ouvre le '}
           ${unlock.toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'})}
         </div>
         ${!isUnlocked ? `
+          <div class="capsule-preview">${c.message.substring(0, 60)}${c.message.length > 60 ? '…' : ''}</div>
           <div class="capsule-countdown-bar">
             <div class="capsule-countdown-fill" style="width:${Math.round(progress*100)}%"></div>
           </div>
