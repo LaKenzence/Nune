@@ -1523,3 +1523,29 @@ body {
   border-color: var(--pink);
   background: rgba(240,98,146,0.15);
 }
+
+/* ── MORE NAV CARDS ── */
+.more-nav-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  color: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  text-align: left;
+  backdrop-filter: blur(10px);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, transform 0.12s;
+  width: 100%;
+}
+.more-nav-card:active { transform: scale(0.97); }
+.more-nav-card:hover { background: rgba(255,255,255,0.14); }
+.more-nav-icon { font-size: 24px; flex-shrink: 0; }
+.more-nav-body { flex: 1; }
+.more-nav-title { font-size: 15px; font-weight: 500; }
+.more-nav-sub { font-size: 11px; opacity: 0.35; margin-top: 2px; letter-spacing: 0.06em; }
+.more-nav-arrow { font-size: 20px; opacity: 0.25; margin-left: auto; }
