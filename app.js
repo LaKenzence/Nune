@@ -6,7 +6,12 @@
 let count = parseInt(localStorage.getItem('signal-count') || '0');
 let musicPlaying = false;
 let secretModeCount = 0;
-let typingInterval = null; // FIX: track active typing animation
+let typingInterval = null;
+let currentAmbiance = null;
+let ambianceAudio = null;
+let selectedMoodEmoji = null;
+let selectedMapEmoji = '📍';
+let currentCitationIdx = 0;
 const CIRCUMFERENCE = 2 * Math.PI * 22;
 
 /* ══════════════════════════════════════════
@@ -54,9 +59,6 @@ const personalSignals = {
   15: { emoji: "✨", text: "Je pense à toi exactement comme ça.\nDouce, lumineuse, réelle.", mood: "amour" },
   19: { emoji: "🫀", text: "Quatre signaux avant la fin.\nMon cœur bat déjà plus fort.", mood: "anticipation" },
 };
-// → COMMENT PERSONNALISER :
-// Remplace les textes ci-dessus par vos vrais souvenirs, blagues internes, surnoms.
-// Tu peux changer les numéros (3, 7, 11...) pour n'importe quel signal de 1 à 22.
 
 const unlockMessages = [
   `Nune…\n\nchaque signal était une façon de te dire quelque chose\nsans le dire tout à fait.\n\nMaintenant tu sais. 💖`,
@@ -78,8 +80,25 @@ const chatResponses = {
 };
 
 /* ══════════════════════════════════════════
+   CITATIONS CACHÉES
+   → Remplace/ajoute tes propres citations pour elle
+══════════════════════════════════════════ */
+const citations = [
+  { text: "Il y a des gens qui éclairent la vie rien qu'en étant là.", author: "— pour toi" },
+  { text: "Tu mérites un amour qui n'a pas peur de lui-même.", author: "— R. H. Sin" },
+  { text: "Dans un champ d'étoiles, tu es celle qu'on choisit de regarder.", author: "— pour toi" },
+  { text: "Être vue. Être choisie. Être aimée pour ce qu'on est vraiment.", author: "— pour toi" },
+  { text: "La douceur est une forme de courage que peu de gens reconnaissent.", author: "— pour toi" },
+  { text: "Tu n'as pas à mériter ta place. Elle a toujours été là.", author: "— pour toi" },
+  { text: "Les vraies choses n'ont pas besoin d'être expliquées.", author: "— pour toi" },
+  { text: "Quelque part, quelqu'un pense à toi et sourit sans raison.", author: "— pour toi" },
+  { text: "Tu es la pensée qui revient toujours.", author: "— pour toi" },
+  { text: "Ce qui compte ne se compte pas.", author: "— Antoine de Saint-Exupéry" },
+];
+
+/* ══════════════════════════════════════════
    LETTRE INTIME
-   → Personnalise ici le texte de la lettre
+   → Remplace ce texte par ta vraie lettre
 ══════════════════════════════════════════ */
 const LETTER = {
   salutation: "Nune,",
@@ -101,7 +120,105 @@ Je les remarque.`,
   signature: "— toujours, quelqu'un qui fait attention ✦",
   date: "Pour toi, pour toujours."
 };
-// → Remplace le texte entre les backticks par ta vraie lettre.
+
+/* ══════════════════════════════════════════
+   AMBIANCES MUSICALES
+   → Remplace les src par tes vrais fichiers audio
+══════════════════════════════════════════ */
+const ambiances = [
+  { id: "lofi",   icon: "🌙", name: "Lo-fi",   sub: "doux & calme",  src: "lofi.mp3" },
+  { id: "piano",  icon: "🎹", name: "Piano",   sub: "mélancolique",  src: "piano.mp3" },
+  { id: "rain",   icon: "🌧️", name: "Pluie",   sub: "cocooning",     src: "rain.mp3" },
+  { id: "cafe",   icon: "☕", name: "Café",    sub: "chaleureux",    src: "cafe.mp3" },
+];
+
+/* ══════════════════════════════════════════
+   ONBOARDING
+══════════════════════════════════════════ */
+const ONBOARDING_STEPS = [
+  {
+    visual: "✨",
+    title: "Bienvenue dans\nTwenty Three",
+    text: "Un espace construit spécialement pour toi.\nDes signaux, des souvenirs, des moments."
+  },
+  {
+    visual: "💌",
+    title: "Des signaux qui\nvoyagent vers toi",
+    text: "Chaque tap sur la carte t'envoie un message.\nCertains sont cachés, uniquement pour toi."
+  },
+  {
+    visual: "🌙",
+    title: "Ton espace,\ntes souvenirs",
+    text: "Photos, dates importantes, capsules du futur…\nTout est là, rien ne disparaît."
+  },
+  {
+    visual: "💖",
+    title: "Comment tu\nveux qu'on t'appelle ?",
+    text: "Pour que les signaux soient vraiment pour toi.",
+    hasInput: true
+  }
+];
+
+let onboardingStep = 0;
+
+function checkOnboarding() {
+  if (!localStorage.getItem('onboarding-done')) {
+    document.getElementById('onboarding').classList.add('active');
+    renderOnboardingStep(0);
+  }
+}
+
+function renderOnboardingStep(idx) {
+  onboardingStep = idx;
+  const step = ONBOARDING_STEPS[idx];
+  const container = document.getElementById('onboarding-steps');
+
+  container.innerHTML = `
+    <div class="onboarding-step active">
+      <div class="onboarding-visual">${step.visual}</div>
+      <div class="onboarding-title">${step.title.replace(/\n/g,'<br>')}</div>
+      <div class="onboarding-text">${step.text.replace(/\n/g,'<br>')}</div>
+      ${step.hasInput ? `<input class="onboarding-name-input" id="onboarding-name" type="text" placeholder="ton prénom…" maxlength="20" autocomplete="off">` : ''}
+      <button class="btn-onboarding" onclick="nextOnboardingStep()">
+        ${idx < ONBOARDING_STEPS.length - 1 ? 'Continuer →' : 'Commencer ✦'}
+      </button>
+      ${idx > 0 ? `<button class="btn-onboarding ghost" onclick="renderOnboardingStep(${idx-1})">← Retour</button>` : ''}
+    </div>
+  `;
+
+  // update dots
+  document.querySelectorAll('.onboarding-dot').forEach((d, i) => {
+    d.classList.toggle('active', i === idx);
+  });
+}
+
+function nextOnboardingStep() {
+  if (onboardingStep === ONBOARDING_STEPS.length - 1) {
+    // last step — save name if entered
+    const nameInput = document.getElementById('onboarding-name');
+    if (nameInput && nameInput.value.trim()) {
+      localStorage.setItem('user-name', nameInput.value.trim());
+    }
+    finishOnboarding();
+  } else {
+    renderOnboardingStep(onboardingStep + 1);
+  }
+}
+
+function finishOnboarding() {
+  localStorage.setItem('onboarding-done', '1');
+  const ob = document.getElementById('onboarding');
+  ob.style.opacity = '0';
+  ob.style.transition = 'opacity 0.5s ease';
+  setTimeout(() => {
+    ob.classList.remove('active');
+    ob.style.opacity = '';
+    ob.style.transition = '';
+    spawnConfetti(50);
+    const name = localStorage.getItem('user-name') || 'Nune';
+    showToast(`Bienvenue ${name} ✨`);
+  }, 500);
+}
 
 /* ══════════════════════════════════════════
    DAILY SIGNAL
@@ -167,22 +284,16 @@ function updateRing() {
 }
 
 /* ══════════════════════════════════════════
-   TYPING — BUG FIX: cancels previous interval
+   TYPING — BUG FIX
 ══════════════════════════════════════════ */
 function typeText(text, el, speed = 22) {
-  if (typingInterval) {
-    clearInterval(typingInterval);
-    typingInterval = null;
-  }
+  if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
   el.innerHTML = "";
   let i = 0;
   typingInterval = setInterval(() => {
     el.innerHTML += text[i] === '\n' ? '<br>' : text[i];
     i++;
-    if (i >= text.length) {
-      clearInterval(typingInterval);
-      typingInterval = null;
-    }
+    if (i >= text.length) { clearInterval(typingInterval); typingInterval = null; }
   }, speed);
 }
 
@@ -191,10 +302,11 @@ function typeText(text, el, speed = 22) {
 ══════════════════════════════════════════ */
 function getTimeMessage() {
   const h = new Date().getHours();
-  if (h < 6)  return { emoji: "🌙", text: "Tu es encore debout… Le signal veille avec toi.", mood: "nuit" };
-  if (h < 12) return { emoji: "☀️", text: "Bon matin Nune. Une belle journée commence.", mood: "douceur" };
-  if (h < 18) return { emoji: "🌤️", text: "Bel après-midi. Le soleil t'a vue.", mood: "lumière" };
-  return { emoji: "🌙", text: "Bonne soirée Nune. Tu mérites une belle nuit.", mood: "calme" };
+  const name = localStorage.getItem('user-name') || 'Nune';
+  if (h < 6)  return { emoji: "🌙", text: `Tu es encore debout… Le signal veille avec toi, ${name}.`, mood: "nuit" };
+  if (h < 12) return { emoji: "☀️", text: `Bon matin ${name}. Une belle journée commence.`, mood: "douceur" };
+  if (h < 18) return { emoji: "🌤️", text: `Bel après-midi. Le soleil t'a vue, ${name}.`, mood: "lumière" };
+  return { emoji: "🌙", text: `Bonne soirée ${name}. Tu mérites une belle nuit.`, mood: "calme" };
 }
 
 function getDateMessage() {
@@ -205,7 +317,7 @@ function getDateMessage() {
 }
 
 /* ══════════════════════════════════════════
-   PARTICLES
+   PARTICLES + CONFETTI
 ══════════════════════════════════════════ */
 const PARTICLES = ["💫", "✨", "🌸", "⭐", "💖", "✦", "🫧", "💛"];
 function spawnParticles(x, y) {
@@ -223,19 +335,15 @@ function spawnParticles(x, y) {
   }
 }
 
-/* ══════════════════════════════════════════
-   CONFETTI — pour les anniversaires
-══════════════════════════════════════════ */
-function spawnConfetti(count = 60) {
+function spawnConfetti(total = 60) {
   const colors = ['#f06292','#ce93d8','#ffd54f','#80cbc4','#ff8a65','#fff8f5'];
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < total; i++) {
     setTimeout(() => {
       const c = document.createElement('div');
       c.className = 'confetti-piece';
       c.style.left = Math.random() * 100 + 'vw';
-      c.style.top = '-10px';
       c.style.background = colors[Math.floor(Math.random() * colors.length)];
-      c.style.width = (6 + Math.random() * 8) + 'px';
+      c.style.width  = (6 + Math.random() * 8) + 'px';
       c.style.height = (6 + Math.random() * 8) + 'px';
       c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
       const dur = 2.5 + Math.random() * 2;
@@ -248,7 +356,7 @@ function spawnConfetti(count = 60) {
 }
 
 /* ══════════════════════════════════════════
-   RIPPLE
+   RIPPLE + TOAST + VIBRATE
 ══════════════════════════════════════════ */
 function spawnRipple(e, card) {
   const rect = card.getBoundingClientRect();
@@ -263,9 +371,6 @@ function spawnRipple(e, card) {
   setTimeout(() => rip.remove(), 800);
 }
 
-/* ══════════════════════════════════════════
-   TOAST
-══════════════════════════════════════════ */
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -273,9 +378,10 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-/* ══════════════════════════════════════════
-   SET CARD
-══════════════════════════════════════════ */
+function vibrate(pattern = [30]) {
+  if (navigator.vibrate) navigator.vibrate(pattern);
+}
+
 function setCard(sig) {
   document.getElementById('card-emoji').textContent = sig.emoji;
   typeText(sig.text, document.getElementById('card-text'));
@@ -285,21 +391,10 @@ function setCard(sig) {
 }
 
 /* ══════════════════════════════════════════
-   VIBRATE
-══════════════════════════════════════════ */
-function vibrate(pattern = [30]) {
-  if (navigator.vibrate) navigator.vibrate(pattern);
-}
-
-/* ══════════════════════════════════════════
    HISTORY
 ══════════════════════════════════════════ */
-function getHistory() {
-  try { return JSON.parse(localStorage.getItem('signal-history') || '[]'); } catch { return []; }
-}
-function saveHistory() {
-  localStorage.setItem('signal-history', JSON.stringify(signalHistory));
-}
+function getHistory() { try { return JSON.parse(localStorage.getItem('signal-history') || '[]'); } catch { return []; } }
+function saveHistory() { localStorage.setItem('signal-history', JSON.stringify(signalHistory)); }
 let signalHistory = getHistory();
 
 function addToHistory(sig) {
@@ -328,15 +423,10 @@ function renderHistory() {
   `).join('');
 }
 
-function clearHistory() {
-  signalHistory = [];
-  saveHistory();
-  renderHistory();
-  showToast("Historique effacé 🌙");
-}
+function clearHistory() { signalHistory = []; saveHistory(); renderHistory(); showToast("Historique effacé 🌙"); }
 
 /* ══════════════════════════════════════════
-   TAP — avec messages personnalisés
+   TAP
 ══════════════════════════════════════════ */
 function tap(e) {
   count++;
@@ -352,7 +442,6 @@ function tap(e) {
   let sig;
   const dateMsg = getDateMessage();
 
-  // Messages personnalisés cachés en priorité
   if (personalSignals[count]) {
     sig = personalSignals[count];
   } else if (count === 5) {
@@ -382,12 +471,8 @@ function tap(e) {
     sig = pool[Math.floor(Math.random() * pool.length)];
   }
 
-  if (sig) {
-    setCard(sig);
-    addToHistory(sig);
-  }
+  if (sig) { setCard(sig); addToHistory(sig); }
 
-  // Toasts milestones (seulement si pas de message perso)
   if (!personalSignals[count]) {
     if (count === 7)  showToast("7 signaux… tu es dans le rythme ✨");
     if (count === 11) showToast("Onze. Un nombre oublié, mais pas ce soir.");
@@ -404,7 +489,7 @@ function closeUnlock() {
 }
 
 /* ══════════════════════════════════════════
-   SEND (chat input)
+   SEND (chat)
 ══════════════════════════════════════════ */
 function send() {
   const val = document.getElementById('input').value.trim().toLowerCase();
@@ -421,23 +506,54 @@ function send() {
 }
 
 /* ══════════════════════════════════════════
-   MUSIC
+   AMBIANCES MUSICALES
 ══════════════════════════════════════════ */
-function toggleMusic() {
-  const m = document.getElementById('music');
-  const bars = document.getElementById('music-bars');
-  m.volume = 0.35;
-  if (m.paused) {
-    m.play().catch(() => showToast("Ajoute un fichier lo-fi.mp3 🎵"));
-    musicPlaying = true;
-    bars.classList.add('playing');
-    document.getElementById('music-icon').textContent = '⏸';
-  } else {
-    m.pause();
-    musicPlaying = false;
-    bars.classList.remove('playing');
-    document.getElementById('music-icon').textContent = '🎵';
+function renderAmbiancePanel() {
+  const el = document.getElementById('ambiance-grid');
+  if (!el) return;
+  el.innerHTML = ambiances.map(a => `
+    <button class="ambiance-btn ${currentAmbiance === a.id ? 'playing' : ''}" onclick="playAmbiance('${a.id}')">
+      <div class="ambiance-icon">${a.icon}</div>
+      <div class="ambiance-name">${a.name}</div>
+      <div class="ambiance-sub">${currentAmbiance === a.id ? '▶ en cours' : a.sub}</div>
+    </button>
+  `).join('');
+}
+
+function playAmbiance(id) {
+  if (ambianceAudio) { ambianceAudio.pause(); ambianceAudio = null; }
+  if (currentAmbiance === id) {
+    currentAmbiance = null;
+    renderAmbiancePanel();
+    updateMusicBars(false);
+    return;
   }
+  const a = ambiances.find(x => x.id === id);
+  if (!a) return;
+  ambianceAudio = new Audio(a.src);
+  ambianceAudio.loop = true;
+  ambianceAudio.volume = 0.35;
+  ambianceAudio.play().catch(() => showToast(`Ajoute le fichier ${a.src} 🎵`));
+  currentAmbiance = id;
+  renderAmbiancePanel();
+  updateMusicBars(true);
+  showToast(`${a.icon} ${a.name} — en cours`);
+}
+
+// Legacy music button still works, plays lofi
+function toggleMusic() {
+  if (currentAmbiance) {
+    playAmbiance(currentAmbiance); // stops it
+  } else {
+    playAmbiance('lofi');
+  }
+}
+
+function updateMusicBars(playing) {
+  const bars = document.getElementById('music-bars');
+  const icon = document.getElementById('music-icon');
+  if (playing) { bars.classList.add('playing'); icon.textContent = '⏸'; }
+  else { bars.classList.remove('playing'); icon.textContent = '🎵'; }
 }
 
 /* ══════════════════════════════════════════
@@ -466,6 +582,45 @@ function switchTab(name) {
   if (name === 'countdown') renderCountdowns();
   if (name === 'gallery')  renderGallery();
   if (name === 'letter')   renderLetter();
+  if (name === 'mood')     renderMoodScreen();
+  if (name === 'capsule')  renderCapsules();
+  if (name === 'map')      renderMap();
+  if (name === 'more')     renderMoreScreen();
+}
+
+/* ══════════════════════════════════════════
+   MORE SCREEN (ambiances + citations)
+══════════════════════════════════════════ */
+function renderMoreScreen() {
+  renderAmbiancePanel();
+  renderCitation();
+}
+
+/* ══════════════════════════════════════════
+   CITATIONS
+══════════════════════════════════════════ */
+function renderCitation() {
+  const el = document.getElementById('citation-text-el');
+  const au = document.getElementById('citation-author-el');
+  if (!el) return;
+  const c = citations[currentCitationIdx];
+  el.style.opacity = '0';
+  setTimeout(() => {
+    el.innerHTML = c.text;
+    au.textContent = c.author;
+    el.style.transition = 'opacity 0.4s';
+    el.style.opacity = '1';
+  }, 200);
+}
+
+function nextCitation() {
+  currentCitationIdx = (currentCitationIdx + 1) % citations.length;
+  renderCitation();
+}
+
+function getDailyCitation() {
+  const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  return citations[dayOfYear % citations.length];
 }
 
 /* ══════════════════════════════════════════
@@ -473,17 +628,320 @@ function switchTab(name) {
 ══════════════════════════════════════════ */
 function renderLetter() {
   const el = document.getElementById('letter-body-text');
+  const sal = document.getElementById('letter-salutation');
+  const sig = document.getElementById('letter-signature');
+  const meta = document.getElementById('letter-meta');
   if (!el) return;
-  // Show immediately (no typeText, it's a letter to read not a card to tap)
+  if (sal) sal.textContent = LETTER.salutation;
+  if (sig) sig.textContent = LETTER.signature;
+  if (meta) meta.textContent = LETTER.date;
   el.innerHTML = LETTER.body.replace(/\n/g, '<br>');
 }
 
 /* ══════════════════════════════════════════
-   COUNTDOWNS + BIRTHDAY DETECTION
+   MOOD TRACKER
 ══════════════════════════════════════════ */
-function getCountdowns() {
-  try { return JSON.parse(localStorage.getItem('countdowns') || '[]'); } catch { return []; }
+const MOODS = [
+  { emoji: "🌟", label: "rayonnante" },
+  { emoji: "😊", label: "bien" },
+  { emoji: "😶", label: "neutre" },
+  { emoji: "🌧️", label: "mélancolique" },
+  { emoji: "💔", label: "difficile" },
+];
+
+function getMoods() { try { return JSON.parse(localStorage.getItem('mood-log') || '{}'); } catch { return {}; } }
+function saveMoods(data) { localStorage.setItem('mood-log', JSON.stringify(data)); }
+
+function selectMood(emoji) {
+  selectedMoodEmoji = emoji;
+  document.querySelectorAll('.mood-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.emoji === emoji);
+  });
 }
+
+function saveTodayMood() {
+  if (!selectedMoodEmoji) { showToast("Choisis une humeur d'abord ✦"); return; }
+  const note = document.getElementById('mood-note')?.value?.trim() || '';
+  const today = new Date().toISOString().slice(0, 10);
+  const data = getMoods();
+  data[today] = { emoji: selectedMoodEmoji, note };
+  saveMoods(data);
+  showToast("Humeur enregistrée 💖");
+  selectedMoodEmoji = null;
+  renderMoodScreen();
+}
+
+function renderMoodScreen() {
+  const data = getMoods();
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Today card
+  const todayEntry = data[today];
+  const moodEl = document.getElementById('mood-today-area');
+  if (moodEl) {
+    moodEl.innerHTML = `
+      <div class="mood-today-label">Comment tu vas aujourd'hui ?</div>
+      <div class="mood-emojis">
+        ${MOODS.map(m => `
+          <button class="mood-btn ${todayEntry?.emoji === m.emoji ? 'selected' : ''}"
+            data-emoji="${m.emoji}" onclick="selectMood('${m.emoji}')">${m.emoji}</button>
+        `).join('')}
+      </div>
+      <textarea class="mood-note-input" id="mood-note" placeholder="Un mot sur ta journée…" rows="2">${todayEntry?.note || ''}</textarea>
+      <button class="btn-save-mood" onclick="saveTodayMood()">Enregistrer ✦</button>
+    `;
+  }
+
+  // Last 28 days grid
+  const gridEl = document.getElementById('mood-grid');
+  if (gridEl) {
+    const days = [];
+    for (let i = 27; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      days.push({ key, d, entry: data[key] });
+    }
+    gridEl.innerHTML = days.map(({ key, d, entry }) => `
+      <div class="mood-day-cell ${entry ? 'has-mood' : ''} ${key === today ? 'today' : ''}"
+           title="${d.toLocaleDateString('fr-FR', {day:'numeric',month:'short'})}${entry ? ' — '+entry.emoji : ''}">
+        <div class="mood-day-emoji">${entry ? entry.emoji : ''}</div>
+        <div class="mood-day-date">${d.getDate()}</div>
+      </div>
+    `).join('');
+  }
+
+  // Stats
+  const statsEl = document.getElementById('mood-stats');
+  if (statsEl) {
+    const entries = Object.values(data);
+    const total = entries.length;
+    // most frequent mood
+    const freq = {};
+    entries.forEach(e => { freq[e.emoji] = (freq[e.emoji] || 0) + 1; });
+    const topEmoji = Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0] || '✨';
+    // streak
+    let streak = 0;
+    for (let i = 0; ; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const k = d.toISOString().slice(0, 10);
+      if (data[k]) streak++; else break;
+    }
+    statsEl.innerHTML = `
+      <div class="mood-stat"><div class="mood-stat-val">${total}</div><div class="mood-stat-label">jours notés</div></div>
+      <div class="mood-stat"><div class="mood-stat-val">${topEmoji}</div><div class="mood-stat-label">humeur fréquente</div></div>
+      <div class="mood-stat"><div class="mood-stat-val">${streak}</div><div class="mood-stat-label">jours de suite</div></div>
+    `;
+  }
+}
+
+/* ══════════════════════════════════════════
+   CAPSULE TEMPORELLE
+══════════════════════════════════════════ */
+function getCapsules() { try { return JSON.parse(localStorage.getItem('capsules') || '[]'); } catch { return []; } }
+function saveCapsules(list) { localStorage.setItem('capsules', JSON.stringify(list)); }
+
+function addCapsule() {
+  const name    = document.getElementById('cap-name')?.value?.trim();
+  const date    = document.getElementById('cap-date')?.value;
+  const message = document.getElementById('cap-message')?.value?.trim();
+  if (!name || !date || !message) { showToast("Remplis tous les champs ✦"); return; }
+
+  const unlockDate = new Date(date + 'T00:00:00');
+  if (unlockDate <= new Date()) { showToast("Choisis une date dans le futur 🌙"); return; }
+
+  const list = getCapsules();
+  list.push({ id: Date.now(), name, date, message, created: new Date().toISOString() });
+  saveCapsules(list);
+  document.getElementById('cap-name').value = '';
+  document.getElementById('cap-date').value = '';
+  document.getElementById('cap-message').value = '';
+  renderCapsules();
+  showToast("Capsule scellée 🔒");
+  vibrate([20, 10, 20, 10, 40]);
+}
+
+function deleteCapsule(id) {
+  saveCapsules(getCapsules().filter(c => c.id !== id));
+  renderCapsules();
+}
+
+function renderCapsules() {
+  const list = getCapsules();
+  const el = document.getElementById('capsule-list');
+  if (!el) return;
+
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;opacity:0.35;font-style:italic;font-size:14px;padding:30px 0">Aucune capsule encore…<br>Écris un message pour le futur ✦</div>';
+    return;
+  }
+
+  const now = new Date();
+  el.innerHTML = list.map(c => {
+    const unlock = new Date(c.date + 'T00:00:00');
+    const isUnlocked = now >= unlock;
+    const created = new Date(c.created);
+    const totalMs = unlock - created;
+    const elapsedMs = now - created;
+    const progress = Math.min(Math.max(elapsedMs / totalMs, 0), 1);
+
+    const daysLeft = Math.ceil((unlock - now) / 86400000);
+    const timeLeftStr = isUnlocked
+      ? ''
+      : daysLeft === 1 ? 'Demain !' : `${daysLeft} jours restants`;
+
+    return `
+      <div class="capsule-card ${isUnlocked ? 'unlocked' : 'locked'}">
+        <div class="capsule-top">
+          <div class="capsule-icon">${isUnlocked ? '💌' : '🔒'}</div>
+          <button class="capsule-delete" onclick="deleteCapsule(${c.id})">✕</button>
+        </div>
+        <div class="capsule-name">${c.name}</div>
+        <div class="capsule-unlock-date">
+          ${isUnlocked ? 'Débloquée le ' : 'S\'ouvre le '}
+          ${unlock.toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'})}
+        </div>
+        ${!isUnlocked ? `
+          <div class="capsule-countdown-bar">
+            <div class="capsule-countdown-fill" style="width:${Math.round(progress*100)}%"></div>
+          </div>
+          <div class="capsule-time-left">${timeLeftStr}</div>
+        ` : `
+          <div class="capsule-unlocked-badge">✦ Message révélé</div>
+          <div class="capsule-message">${c.message}</div>
+        `}
+      </div>
+    `;
+  }).join('');
+
+  // Check for newly unlocked capsules (notify once)
+  list.forEach(c => {
+    const unlock = new Date(c.date + 'T00:00:00');
+    const notifiedKey = 'capsule-notified-' + c.id;
+    if (now >= unlock && !localStorage.getItem(notifiedKey)) {
+      localStorage.setItem(notifiedKey, '1');
+      setTimeout(() => {
+        showToast(`💌 "${c.name}" s'est débloquée !`);
+        spawnConfetti(50);
+        vibrate([50, 30, 50, 30, 100]);
+      }, 500);
+    }
+  });
+}
+
+/* ══════════════════════════════════════════
+   CARTE DES LIEUX
+══════════════════════════════════════════ */
+const MAP_EMOJIS = ['📍','💖','🌹','⭐','🏡','🎭','☕','✈️','🌊','🌸'];
+
+function getPlaces() { try { return JSON.parse(localStorage.getItem('map-places') || '[]'); } catch { return []; } }
+function savePlaces(list) { localStorage.setItem('map-places', JSON.stringify(list)); }
+
+function selectMapEmoji(emoji) {
+  selectedMapEmoji = emoji;
+  document.querySelectorAll('.map-emoji-opt').forEach(b => {
+    b.classList.toggle('selected', b.dataset.emoji === emoji);
+  });
+}
+
+function addPlace() {
+  const name = document.getElementById('place-name')?.value?.trim();
+  const desc = document.getElementById('place-desc')?.value?.trim();
+  const x    = parseFloat(document.getElementById('place-x')?.value) || 50;
+  const y    = parseFloat(document.getElementById('place-y')?.value) || 50;
+  if (!name) { showToast("Donne un nom au lieu ✦"); return; }
+  const list = getPlaces();
+  list.push({ id: Date.now(), name, desc: desc || '', emoji: selectedMapEmoji, x: Math.min(Math.max(x,5),95), y: Math.min(Math.max(y,5),90) });
+  savePlaces(list);
+  document.getElementById('place-name').value = '';
+  document.getElementById('place-desc').value = '';
+  renderMap();
+  showToast(`${selectedMapEmoji} ${name} ajouté ✦`);
+}
+
+function deletePlace(id) {
+  savePlaces(getPlaces().filter(p => p.id !== id));
+  renderMap();
+}
+
+function renderMap() {
+  const places = getPlaces();
+
+  // Render pins on visual map
+  const mapVisual = document.getElementById('map-visual');
+  if (mapVisual) {
+    // Remove old pins
+    mapVisual.querySelectorAll('.map-pin').forEach(p => p.remove());
+    places.forEach(p => {
+      const pin = document.createElement('div');
+      pin.className = 'map-pin';
+      pin.style.left = p.x + '%';
+      pin.style.top  = p.y + '%';
+      const colors = ['#f06292','#ce93d8','#ffd54f','#80cbc4','#ff8a65'];
+      const color = colors[p.id % colors.length];
+      pin.innerHTML = `
+        <div class="map-pin-dot" style="background:${color}">
+          <div class="map-pin-dot-inner">${p.emoji}</div>
+        </div>
+        <div class="map-pin-label">${p.name}</div>
+      `;
+      pin.addEventListener('click', () => pin.classList.toggle('show-label'));
+      mapVisual.appendChild(pin);
+    });
+  }
+
+  // Render list
+  const listEl = document.getElementById('map-places-list');
+  if (listEl) {
+    if (!places.length) {
+      listEl.innerHTML = '<div style="text-align:center;opacity:0.35;font-style:italic;font-size:14px;padding:20px 0">Aucun lieu encore…<br>Ajoute vos endroits spéciaux ✦</div>';
+      return;
+    }
+    listEl.innerHTML = places.map(p => `
+      <div class="map-place-item">
+        <div class="map-place-emoji">${p.emoji}</div>
+        <div class="map-place-body">
+          <div class="map-place-name">${p.name}</div>
+          ${p.desc ? `<div class="map-place-desc">${p.desc}</div>` : ''}
+        </div>
+        <button class="map-place-delete" onclick="deletePlace(${p.id})">✕</button>
+      </div>
+    `).join('');
+  }
+
+  // Render emoji picker
+  const emojiPicker = document.getElementById('map-emoji-picker');
+  if (emojiPicker) {
+    emojiPicker.innerHTML = MAP_EMOJIS.map(e => `
+      <button class="map-emoji-opt ${selectedMapEmoji === e ? 'selected' : ''}"
+        data-emoji="${e}" onclick="selectMapEmoji('${e}')">${e}</button>
+    `).join('');
+  }
+}
+
+// Allow tapping the map to set coordinates
+function initMapTap() {
+  const mapEl = document.getElementById('map-visual');
+  if (!mapEl) return;
+  mapEl.addEventListener('click', (e) => {
+    if (e.target.closest('.map-pin')) return;
+    const rect = mapEl.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+    const y = Math.round(((e.clientY - rect.top)  / rect.height) * 100);
+    const xInput = document.getElementById('place-x');
+    const yInput = document.getElementById('place-y');
+    if (xInput) xInput.value = x;
+    if (yInput) yInput.value = y;
+    showToast(`Position : ${x}%, ${y}% ✦`);
+    // Flash the add button
+    const btn = document.getElementById('map-add-btn');
+    if (btn) { btn.style.background = 'linear-gradient(135deg, #ffd54f, #f06292)'; setTimeout(() => btn.style.background = '', 800); }
+  });
+}
+
+/* ══════════════════════════════════════════
+   COUNTDOWNS + BIRTHDAY
+══════════════════════════════════════════ */
+function getCountdowns() { try { return JSON.parse(localStorage.getItem('countdowns') || '[]'); } catch { return []; } }
 function saveCountdowns(list) { localStorage.setItem('countdowns', JSON.stringify(list)); }
 
 function addCountdown() {
@@ -500,8 +958,7 @@ function addCountdown() {
 }
 
 function deleteCountdown(id) {
-  const list = getCountdowns().filter(c => c.id !== id);
-  saveCountdowns(list);
+  saveCountdowns(getCountdowns().filter(c => c.id !== id));
   renderCountdowns();
 }
 
@@ -510,44 +967,27 @@ function getTimeLeft(dateStr) {
   const target = new Date(dateStr + 'T00:00:00');
   const diff = target - now;
   if (diff < 0) return null;
-  const days  = Math.floor(diff / 86400000);
-  const hours = Math.floor((diff % 86400000) / 3600000);
-  const mins  = Math.floor((diff % 3600000) / 60000);
-  const secs  = Math.floor((diff % 60000) / 1000);
-  return { days, hours, mins, secs };
+  return {
+    days:  Math.floor(diff / 86400000),
+    hours: Math.floor((diff % 86400000) / 3600000),
+    mins:  Math.floor((diff % 3600000) / 60000),
+    secs:  Math.floor((diff % 60000) / 1000)
+  };
 }
 
-// Check if any countdown is TODAY → show birthday banner + confetti
 function checkTodayDates() {
   const list = getCountdowns();
   const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-
-  // Also check month-day match (anniversary repeats every year)
   const todayMD = `${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-
   const match = list.find(c => {
     if (!c.date) return false;
-    // exact date match
-    if (c.date === todayStr) return true;
-    // monthly/day anniversary match (ignore year)
     const parts = c.date.split('-');
-    if (parts.length === 3) {
-      const md = `${parts[1]}-${parts[2]}`;
-      return md === todayMD;
-    }
-    return false;
+    return parts.length === 3 && `${parts[1]}-${parts[2]}` === todayMD;
   });
-
   if (!match) return;
-
-  // Don't show banner more than once per day
   const shownKey = 'birthday-banner-shown';
-  const shownToday = localStorage.getItem(shownKey) === today.toDateString();
-  if (shownToday) return;
-
+  if (localStorage.getItem(shownKey) === today.toDateString()) return;
   localStorage.setItem(shownKey, today.toDateString());
-
   const banner = document.getElementById('birthday-banner');
   const bannerText = document.getElementById('birthday-banner-text');
   bannerText.textContent = `✦ Aujourd'hui c'est ${match.name} ✦`;
@@ -557,9 +997,7 @@ function checkTodayDates() {
   showToast(`${match.name} — c'est aujourd'hui ! 🎉`);
 }
 
-function closeBirthdayBanner() {
-  document.getElementById('birthday-banner').classList.remove('show');
-}
+function closeBirthdayBanner() { document.getElementById('birthday-banner').classList.remove('show'); }
 
 function renderCountdowns() {
   const list = getCountdowns();
@@ -568,57 +1006,35 @@ function renderCountdowns() {
     el.innerHTML = '<div style="text-align:center;opacity:0.35;font-style:italic;font-size:14px;padding:30px 0">Aucune date encore…<br>Ajoute un moment important ✦</div>';
     return;
   }
-
   const today = new Date();
   const todayMD = `${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-
   el.innerHTML = list.map(c => {
     const tl = getTimeLeft(c.date);
-
-    // Check if today (for celebrate badge)
-    let isToday = false;
-    if (c.date) {
-      const parts = c.date.split('-');
-      if (parts.length === 3) {
-        const md = `${parts[1]}-${parts[2]}`;
-        isToday = (md === todayMD);
-      }
-    }
-
+    const parts = c.date?.split('-') || [];
+    const isToday = parts.length === 3 && `${parts[1]}-${parts[2]}` === todayMD;
     if (!tl) {
       return `<div class="countdown-card">
-        <div class="countdown-card-top">
-          <div class="countdown-name">${c.name}</div>
-          <button class="countdown-delete" onclick="deleteCountdown(${c.id})">✕</button>
-        </div>
-        ${isToday
-          ? `<div class="countdown-celebrate">🎉 C'est aujourd'hui ! 🎉</div>`
-          : `<div class="countdown-past">Ce moment est passé ✨</div>`}
+        <div class="countdown-card-top"><div class="countdown-name">${c.name}</div>
+        <button class="countdown-delete" onclick="deleteCountdown(${c.id})">✕</button></div>
+        ${isToday ? `<div class="countdown-celebrate">🎉 C'est aujourd'hui ! 🎉</div>` : `<div class="countdown-past">Ce moment est passé ✨</div>`}
       </div>`;
     }
-
-    const todayCelebrate = tl.days === 0 ? `<div class="countdown-celebrate">🎉 C'est aujourd'hui !</div>` : '';
-
     return `<div class="countdown-card" data-id="${c.id}">
-      <div class="countdown-card-top">
-        <div class="countdown-name">${c.name}</div>
-        <button class="countdown-delete" onclick="deleteCountdown(${c.id})">✕</button>
-      </div>
+      <div class="countdown-card-top"><div class="countdown-name">${c.name}</div>
+      <button class="countdown-delete" onclick="deleteCountdown(${c.id})">✕</button></div>
       <div class="countdown-units">
         <div class="cd-unit"><div class="cd-num" id="cd-d-${c.id}">${tl.days}</div><div class="cd-label">jours</div></div>
         <div class="cd-unit"><div class="cd-num" id="cd-h-${c.id}">${String(tl.hours).padStart(2,'0')}</div><div class="cd-label">heures</div></div>
         <div class="cd-unit"><div class="cd-num" id="cd-m-${c.id}">${String(tl.mins).padStart(2,'0')}</div><div class="cd-label">min</div></div>
         <div class="cd-unit"><div class="cd-num" id="cd-s-${c.id}">${String(tl.secs).padStart(2,'0')}</div><div class="cd-label">sec</div></div>
       </div>
-      ${todayCelebrate}
+      ${tl.days === 0 ? `<div class="countdown-celebrate">🎉 C'est aujourd'hui !</div>` : ''}
     </div>`;
   }).join('');
 }
 
-// Live countdown tick
 setInterval(() => {
-  const list = getCountdowns();
-  list.forEach(c => {
+  getCountdowns().forEach(c => {
     const tl = getTimeLeft(c.date);
     if (!tl) return;
     const ds = document.getElementById('cd-d-' + c.id);
@@ -635,9 +1051,7 @@ setInterval(() => {
 /* ══════════════════════════════════════════
    GALLERY
 ══════════════════════════════════════════ */
-function getPhotos() {
-  try { return JSON.parse(localStorage.getItem('gallery-photos') || '[]'); } catch { return []; }
-}
+function getPhotos() { try { return JSON.parse(localStorage.getItem('gallery-photos') || '[]'); } catch { return []; } }
 function savePhotos(list) { localStorage.setItem('gallery-photos', JSON.stringify(list)); }
 
 function handlePhotoUpload(event) {
@@ -657,20 +1071,14 @@ function handlePhotoUpload(event) {
   reader.readAsDataURL(file);
 }
 
-function deletePhoto(id) {
-  const photos = getPhotos().filter(p => p.id !== id);
-  savePhotos(photos);
-  renderGallery();
-}
+function deletePhoto(id) { savePhotos(getPhotos().filter(p => p.id !== id)); renderGallery(); }
 
 function openLightbox(src, caption) {
   document.getElementById('lightbox-img').src = src;
   document.getElementById('lightbox-caption').textContent = caption || '';
   document.getElementById('lightbox').classList.add('open');
 }
-function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('open');
-}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
 
 function renderGallery() {
   const photos = getPhotos();
@@ -687,9 +1095,7 @@ function renderGallery() {
       </div>
     `).join('');
   }
-  if (count < 23) {
-    html += `<div class="surprise-lock"><span>🔒</span> Photo surprise au signal 23</div>`;
-  }
+  if (count < 23) html += `<div class="surprise-lock"><span>🔒</span> Photo surprise au signal 23</div>`;
   grid.innerHTML = html;
 }
 
@@ -704,20 +1110,19 @@ function requestNotifPermission() {
       document.getElementById('notif-banner').classList.remove('show');
       showToast("Notifications activées 💌");
       scheduleNotifications();
-    } else {
-      showToast("Permission refusée 🙁");
-    }
+    } else { showToast("Permission refusée 🙁"); }
   });
 }
 
 function scheduleNotifications() {
   if (Notification.permission !== 'granted') return;
+  const name = localStorage.getItem('user-name') || 'Nune';
   const messages = [
-    "Je pense à toi. ✦",
-    "Un signal t'attend. 💫",
-    "Le 23 se souvient de toi. 🌙",
-    "Quelqu'un t'envoie de la douceur. 💖",
-    "Bonne journée Nune. ✨",
+    `Je pense à toi. ✦`,
+    `Un signal t'attend, ${name}. 💫`,
+    `Le 23 se souvient de toi. 🌙`,
+    `Quelqu'un t'envoie de la douceur. 💖`,
+    `Bonne journée ${name}. ✨`,
   ];
   const lastNotif = localStorage.getItem('last-notif-day');
   const today = new Date().toDateString();
@@ -726,7 +1131,7 @@ function scheduleNotifications() {
       if (Notification.permission === 'granted') {
         new Notification("Twenty Three 💌", {
           body: messages[Math.floor(Math.random() * messages.length)],
-          icon: "https://cdn-icons-png.flaticon.com/512/833/833472.png",
+          icon: "logo.svg",
         });
         localStorage.setItem('last-notif-day', today);
       }
@@ -742,31 +1147,19 @@ function initDailyBadge() {
   const badge = document.getElementById('daily-badge');
   document.getElementById('daily-badge-text').textContent = 'Signal du jour : ' + sig.mood;
   badge.classList.add('show');
-  badge.onclick = () => {
-    setCard(sig);
-    addToHistory(sig);
-    showToast("Signal du jour ✦");
-    vibrate([20]);
-  };
+  badge.onclick = () => { setCard(sig); addToHistory(sig); showToast("Signal du jour ✦"); vibrate([20]); };
 }
 
-/* ══════════════════════════════════════════
-   NOTIF BANNER
-══════════════════════════════════════════ */
 function checkNotifBanner() {
   if (!('Notification' in window)) return;
   if (localStorage.getItem('notif-granted')) return;
-  if (Notification.permission === 'default') {
-    document.getElementById('notif-banner').classList.add('show');
-  }
+  if (Notification.permission === 'default') document.getElementById('notif-banner').classList.add('show');
 }
 
 /* ══════════════════════════════════════════
    PWA
 ══════════════════════════════════════════ */
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
-}
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
 /* ══════════════════════════════════════════
    INIT
@@ -774,7 +1167,49 @@ if ('serviceWorker' in navigator) {
 updateRing();
 initDailyBadge();
 checkNotifBanner();
-checkTodayDates(); // ← check anniversaires au lancement
+checkTodayDates();
+initMapTap();
+// Set daily citation index
+currentCitationIdx = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000) % citations.length;
+
 if (localStorage.getItem('notif-granted') && Notification.permission === 'granted') {
   scheduleNotifications();
+}
+
+// Onboarding — slight delay so the app renders first
+setTimeout(checkOnboarding, 300);
+
+/* ══════════════════════════════════════════
+   MORE SCREEN — quick links to other screens
+══════════════════════════════════════════ */
+// Patch renderMoreScreen to also show quick-access links
+const _renderMoreScreen = renderMoreScreen;
+function renderMoreScreen() {
+  _renderMoreScreen();
+  // inject quick links if not already there
+  const screen = document.getElementById('screen-more');
+  if (!screen || screen.querySelector('.more-links')) return;
+  const links = document.createElement('div');
+  links.className = 'more-links';
+  links.style.cssText = 'width:100%;max-width:380px;padding:0 20px;margin-top:4px;display:flex;flex-direction:column;gap:8px;';
+  links.innerHTML = `
+    <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;opacity:0.35;margin-bottom:4px">Autres sections</div>
+    ${[
+      ['screen-gallery',   '🌸', 'Nos souvenirs',     'galerie privée'],
+      ['screen-letter',    '💌', 'La Lettre',          'pour toi, toujours'],
+      ['screen-countdown', '🗓', 'Compte à rebours',   'les moments importants'],
+      ['screen-history',   '🌙', 'Historique',         'tous tes signaux'],
+    ].map(([screen, icon, title, sub]) => `
+      <button onclick="switchTab('${screen.replace('screen-','')}');this.closest('.screen').classList.remove('active');document.getElementById('tab-more').classList.remove('active')"
+        style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--glass);border:1px solid var(--glass-border);border-radius:18px;color:var(--cream);font-family:'DM Sans',sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent;text-align:left;backdrop-filter:blur(10px);">
+        <span style="font-size:22px">${icon}</span>
+        <div>
+          <div style="font-size:14px;font-weight:500">${title}</div>
+          <div style="font-size:11px;opacity:0.35;margin-top:2px;letter-spacing:0.08em">${sub}</div>
+        </div>
+        <span style="margin-left:auto;opacity:0.25;font-size:16px">›</span>
+      </button>
+    `).join('')}
+  `;
+  screen.appendChild(links);
 }
