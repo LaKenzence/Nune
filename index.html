@@ -222,6 +222,44 @@
   <div class="map-container">
     <div class="map-visual" id="map-visual">
       <div class="map-grid-lines"></div>
+      <!-- Continents stylisés -->
+      <svg class="map-continents" viewBox="0 0 340 200" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+        <!-- Europe -->
+        <path d="M160 52 L168 48 L175 50 L180 55 L178 62 L172 65 L168 70 L163 68 L158 63 Z" fill="#a0c8f0"/>
+        <!-- UK -->
+        <path d="M152 50 L156 47 L158 52 L154 55 Z" fill="#a0c8f0"/>
+        <!-- Scandinavie -->
+        <path d="M163 40 L170 36 L175 42 L172 48 L166 46 Z" fill="#a0c8f0"/>
+        <!-- Russie/Asie -->
+        <path d="M178 42 L220 35 L250 40 L255 55 L240 60 L210 58 L190 62 L180 58 L178 50 Z" fill="#a0c8f0"/>
+        <!-- Afrique -->
+        <path d="M162 72 L172 68 L182 72 L188 85 L185 105 L178 118 L168 120 L160 112 L157 95 L158 80 Z" fill="#a0c8f0"/>
+        <!-- Asie du Sud -->
+        <path d="M200 65 L218 62 L228 68 L230 78 L222 85 L210 82 L200 75 Z" fill="#a0c8f0"/>
+        <!-- Inde -->
+        <path d="M210 80 L218 78 L222 88 L216 98 L210 95 L207 85 Z" fill="#a0c8f0"/>
+        <!-- Asie du SE -->
+        <path d="M228 72 L245 68 L250 75 L242 80 L232 78 Z" fill="#a0c8f0"/>
+        <!-- Chine/Japon -->
+        <path d="M240 50 L258 46 L265 55 L260 62 L248 60 L240 56 Z" fill="#a0c8f0"/>
+        <path d="M268 50 L272 48 L274 54 L270 56 Z" fill="#a0c8f0"/>
+        <!-- Australie -->
+        <path d="M248 115 L268 110 L278 118 L275 132 L262 138 L250 132 L245 122 Z" fill="#a0c8f0"/>
+        <!-- Amérique du Nord -->
+        <path d="M55 38 L85 32 L100 38 L105 50 L98 60 L88 65 L75 62 L60 55 L52 46 Z" fill="#a0c8f0"/>
+        <!-- Groenland -->
+        <path d="M88 25 L100 22 L105 30 L98 36 L88 33 Z" fill="#a0c8f0"/>
+        <!-- Amérique centrale/Mexique -->
+        <path d="M75 65 L90 62 L95 70 L88 78 L78 76 L72 70 Z" fill="#a0c8f0"/>
+        <!-- Amérique du Sud -->
+        <path d="M82 82 L95 78 L102 85 L100 105 L95 122 L85 128 L76 120 L73 100 L76 88 Z" fill="#a0c8f0"/>
+        <!-- Madagascar -->
+        <path d="M188 108 L192 104 L194 112 L190 118 Z" fill="#a0c8f0"/>
+        <!-- Équateur -->
+        <line x1="0" y1="105" x2="340" y2="105" stroke="rgba(255,200,100,0.15)" stroke-width="0.8" stroke-dasharray="4,6"/>
+        <!-- Tropique du Cancer -->
+        <line x1="0" y1="80" x2="340" y2="80" stroke="rgba(255,200,100,0.08)" stroke-width="0.5" stroke-dasharray="3,8"/>
+      </svg>
     </div>
     <div style="font-size:10px;opacity:0.25;text-align:center;margin-top:6px;letter-spacing:0.08em">
       Appuie sur la carte pour placer un lieu ✦
@@ -335,7 +373,7 @@
   </button>
 </nav>
 
-<audio id="music" loop><source src="lofi.mp3" type="audio/mp3"></audio>
+<audio id="music" loop><source src="lo-fi.mp3" type="audio/mp3"></audio>
 
 <svg width="0" height="0" style="position:absolute">
   <defs>
