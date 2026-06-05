@@ -521,29 +521,49 @@ function renderAmbiancePanel() {
 }
 
 function playAmbiance(id) {
+  // Stop whatever is playing
   if (ambianceAudio) { ambianceAudio.pause(); ambianceAudio = null; }
+  const htmlAudio = document.getElementById('music');
+  if (htmlAudio) htmlAudio.pause();
+
   if (currentAmbiance === id) {
     currentAmbiance = null;
     renderAmbiancePanel();
     updateMusicBars(false);
     return;
   }
+
   const a = ambiances.find(x => x.id === id);
   if (!a) return;
-  ambianceAudio = new Audio(a.src);
-  ambianceAudio.loop = true;
-  ambianceAudio.volume = 0.35;
-  ambianceAudio.play().catch(() => showToast(`Ajoute le fichier ${a.src} 🎵`));
+
+  // Try HTML audio element first for lofi (uses the <audio> tag src)
+  if (id === 'lofi' && htmlAudio) {
+    htmlAudio.volume = 0.35;
+    htmlAudio.play().catch(() => showToast(`Ajoute le fichier ${a.src} 🎵`));
+    ambianceAudio = null; // using htmlAudio instead
+  } else {
+    ambianceAudio = new Audio(a.src);
+    ambianceAudio.loop = true;
+    ambianceAudio.volume = 0.35;
+    ambianceAudio.play().catch(() => showToast(`Ajoute le fichier ${a.src} 🎵`));
+  }
+
   currentAmbiance = id;
   renderAmbiancePanel();
   updateMusicBars(true);
   showToast(`${a.icon} ${a.name} — en cours`);
 }
 
-// Legacy music button still works, plays lofi
+// Bouton musique sur l'écran home — toggle lofi
 function toggleMusic() {
-  if (currentAmbiance) {
-    playAmbiance(currentAmbiance); // stops it
+  const htmlAudio = document.getElementById('music');
+  if (currentAmbiance === 'lofi' || (htmlAudio && !htmlAudio.paused)) {
+    // stop
+    if (htmlAudio) htmlAudio.pause();
+    if (ambianceAudio) { ambianceAudio.pause(); ambianceAudio = null; }
+    currentAmbiance = null;
+    updateMusicBars(false);
+    renderAmbiancePanel();
   } else {
     playAmbiance('lofi');
   }
@@ -552,8 +572,8 @@ function toggleMusic() {
 function updateMusicBars(playing) {
   const bars = document.getElementById('music-bars');
   const icon = document.getElementById('music-icon');
-  if (playing) { bars.classList.add('playing'); icon.textContent = '⏸'; }
-  else { bars.classList.remove('playing'); icon.textContent = '🎵'; }
+  if (bars) { if (playing) bars.classList.add('playing'); else bars.classList.remove('playing'); }
+  if (icon) icon.textContent = playing ? '⏸' : '🎵';
 }
 
 /* ══════════════════════════════════════════
@@ -575,24 +595,19 @@ function secretMode() {
 ══════════════════════════════════════════ */
 // Screens accessible from "Plus" tab — push navigation (slide from right)
 const MORE_CHILDREN = ['gallery', 'letter', 'countdown', 'history'];
-let navigationStack = []; // track where we came from
+let navigationStack = [];
 
 function switchTab(name) {
   const isSubscreen = MORE_CHILDREN.includes(name);
-
   if (isSubscreen) {
     pushScreen(name);
     return;
   }
 
-  // Normal tab switch — reset any subscreen state
+  // Reset all subscreen state
   navigationStack = [];
-  document.querySelectorAll('.screen.subscreen').forEach(s => {
-    s.classList.remove('slide-in');
-  });
-  document.querySelectorAll('.screen:not(.subscreen)').forEach(s => {
-    s.classList.remove('active', 'push-back');
-  });
+  document.querySelectorAll('.screen.subscreen').forEach(s => s.classList.remove('slide-in'));
+  document.querySelectorAll('.screen:not(.subscreen)').forEach(s => s.classList.remove('active', 'push-back'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
 
   const screenEl = document.getElementById('screen-' + name);
@@ -601,37 +616,36 @@ function switchTab(name) {
   const tabEl = document.getElementById('tab-' + name);
   if (tabEl) tabEl.classList.add('active');
 
-  // Show nav
   document.getElementById('nav-main').classList.remove('hidden');
 
-  if (name === 'mood')     renderMoodScreen();
-  if (name === 'capsule')  renderCapsules();
-  if (name === 'map')      renderMap();
-  if (name === 'more')     renderMoreScreen();
+  if (name === 'mood')    renderMoodScreen();
+  if (name === 'capsule') renderCapsules();
+  if (name === 'map')     { renderMap(); bindMapTap(); }
+  if (name === 'more')    renderMoreScreen();
 }
 
 function pushScreen(name) {
-  // Find the current visible non-subscreen to push back
-  const currentMain = document.querySelector('.screen.active:not(.subscreen)') ||
-                      document.querySelector('.screen.subscreen.slide-in');
+  // Find current visible screen to push back
+  const currentVisible =
+    document.querySelector('.screen.subscreen.slide-in') ||
+    document.querySelector('.screen.active:not(.subscreen)');
 
-  if (currentMain) {
-    currentMain.classList.add('push-back');
-    navigationStack.push(currentMain.id.replace('screen-', ''));
+  if (currentVisible) {
+    currentVisible.classList.add('push-back');
+    navigationStack.push(currentVisible.id.replace('screen-', ''));
   }
 
   const screenEl = document.getElementById('screen-' + name);
   if (!screenEl) return;
 
-  // Small delay so push-back starts first
   requestAnimationFrame(() => {
-    screenEl.classList.add('slide-in');
+    requestAnimationFrame(() => {
+      screenEl.classList.add('slide-in');
+    });
   });
 
-  // Hide nav bar
   document.getElementById('nav-main').classList.add('hidden');
 
-  // Render content
   if (name === 'history')   renderHistory();
   if (name === 'countdown') renderCountdowns();
   if (name === 'gallery')   renderGallery();
@@ -642,19 +656,14 @@ function goBack() {
   const currentSubscreen = document.querySelector('.screen.subscreen.slide-in');
   if (!currentSubscreen) return;
 
-  // Slide current screen out to the right
   currentSubscreen.classList.remove('slide-in');
 
-  // Restore previous screen
   const prevName = navigationStack.pop();
   if (prevName) {
     const prevEl = document.getElementById('screen-' + prevName);
-    if (prevEl) {
-      prevEl.classList.remove('push-back');
-    }
+    if (prevEl) prevEl.classList.remove('push-back');
   }
 
-  // If stack empty, show nav again
   if (navigationStack.length === 0) {
     document.getElementById('nav-main').classList.remove('hidden');
   }
@@ -988,12 +997,15 @@ function renderMap() {
         data-emoji="${e}" onclick="selectMapEmoji('${e}')">${e}</button>
     `).join('');
   }
+
+  bindMapTap();
 }
 
-// Allow tapping the map to set coordinates
-function initMapTap() {
+// Bind tap on map to set pin coordinates — called each time map renders
+function bindMapTap() {
   const mapEl = document.getElementById('map-visual');
-  if (!mapEl) return;
+  if (!mapEl || mapEl._tapBound) return;
+  mapEl._tapBound = true;
   mapEl.addEventListener('click', (e) => {
     if (e.target.closest('.map-pin')) return;
     const rect = mapEl.getBoundingClientRect();
@@ -1003,8 +1015,12 @@ function initMapTap() {
     const yInput = document.getElementById('place-y');
     if (xInput) xInput.value = x;
     if (yInput) yInput.value = y;
-    showToast(`Position : ${x}%, ${y}% ✦`);
-    // Flash the add button
+    // Visual feedback: flash a ghost pin at tap position
+    const ghost = document.createElement('div');
+    ghost.style.cssText = `position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);font-size:20px;pointer-events:none;animation:floatUp 0.8s ease-out forwards;z-index:10`;
+    ghost.textContent = selectedMapEmoji || '📍';
+    mapEl.appendChild(ghost);
+    setTimeout(() => ghost.remove(), 900);
     const btn = document.getElementById('map-add-btn');
     if (btn) { btn.style.background = 'linear-gradient(135deg, #ffd54f, #f06292)'; setTimeout(() => btn.style.background = '', 800); }
   });
@@ -1240,13 +1256,9 @@ updateRing();
 initDailyBadge();
 checkNotifBanner();
 checkTodayDates();
-initMapTap();
-// Set daily citation index
 currentCitationIdx = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000) % citations.length;
 
 if (localStorage.getItem('notif-granted') && Notification.permission === 'granted') {
   scheduleNotifications();
 }
-
-// Onboarding — slight delay so the app renders first
 setTimeout(checkOnboarding, 300);
