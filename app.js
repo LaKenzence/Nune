@@ -163,6 +163,8 @@ function pushScreen(name) {
   if (name === 'countdown') renderCountdowns();
   if (name === 'gallery')   renderGallery();
   if (name === 'letter')    renderLetter();
+  if (name === 'playlist')  renderPlaylist();
+  if (name === 'themes')    renderThemePicker();
 
   if (navigator.vibrate) navigator.vibrate(8);
 }
@@ -276,9 +278,9 @@ const citations = [
 ];
 
 const LETTER = {
-  salutation: "Nune,",
-  body: `Il y a des choses qu'on ne dit pas facilement.\nPas parce qu'elles ne sont pas vraies,\nmais parce qu'elles sont trop vraies.\n\nJ'ai construit ces signaux pour toi.\nChaque tap, chaque message — c'est moi qui pense à toi\ndans le silence de quelque chose que les mots n'atteignent pas tout à fait.\n\nTu mérites d'être vue.\nTu mérites d'être choisie.\nTu mérites que quelqu'un remarque\nles petits détails qui font que tu es toi.\n\nAlors voilà.\nJe les remarque.`,
-  signature: "— toujours, quelqu'un qui fait attention ✦",
+  salutation: "Well, Well, Well…",
+  body: `There are moments we dread even when we know they're coming, and this is clearly one of them. It's hard to find the right words. Knowing that we're going to be separate hurts me and makes me really sad.\n\nI still remember the first time we met.\nThe moment I saw you, as soon as I saw you, I thought you were so beautiful. And very quickly, I realized that you were even more incredible as a person. Even if everything wasn't perfect (le chocolat chaud…), in the end it became a funny moment that connected us. And most important, I had no idea that the moments together after that would become even better.\n\nI feel like everything went by way too fast. When I'm with you, time doesn't exist.\n\nWe met without forcing anything, without planning anything… And yet there was something strong from the very beginning. A connection I can't really explain, but that I fell in love. And I feel this connection every time we're together, like we understand without speaking.\n\nAnd now, the fact that you're leaving is going to change everything for me. Nothing here feel the same, because all our moments have become so precious to me.\n\nI'm so happy that I met you. What we lived was, is, will be real and even with the distance, it won't disappear.\n\nWhat I'll always remember about you is that you are unique, genuine girl, full of life…\nWith all your unforgettable moments: your floor time, your spiders, your coffee, your tea (my witch), your energy, your eyes, your smile… And so many things.\n\nWe are each other's first love, and yes, that makes everything more intense. But I don't think it's only that. I truly think we are meant for each other.\n\nI sincerely believe that the two of us can go very far together. And no matter what the future decides, for me… YOU ARE THE ONE.\n\nI don't know how all of this gonna evolve, but I will do my best to keep what we have.\n\nBecause with you, I feel 100% myself. And I never been as happy as I've been since I'm with you.\n\nAnd the way you open up to me the way you do… I know how difficult was for you, My Rock, The Rock. That's probably the most beautiful proof of love you could ever give me.\n\nSo I'm just doing, going to say what I already know:\n\nI love you with all my heart.\nI think about you every time.\nI want to be with you all the time.\nYou are unique.\nWhat we have it's not a coincidence, it's something undeniable.\nYou are the best.\n\nI'm going to miss your kisses. I'm going to miss your hugs. Your perfume, your eyes, your smile, your hair… Absolutely everything.\n\nSafe flight my love\nJe t'aime Nune ❤️\nI love you\nYes, sirum yem k'ez, much much much\n\nNo matter the distance, you'll always have a place in my heart, keep that in mind.`,
+  signature: "Kenzo ✦",
   date: "Pour toi, pour toujours."
 };
 
@@ -288,6 +290,115 @@ const ambiances = [
   { id: "rain",   icon: "🌧️", name: "Pluie",   sub: "cocooning",     src: "rain.mp3" },
   { id: "cafe",   icon: "☕", name: "Café",    sub: "chaleureux",    src: "cafe.mp3" },
 ];
+
+/* ════════════════════════════════════════
+   THEMES
+════════════════════════════════════════ */
+const THEMES = {
+  violet: {
+    name: "Nuit violette",
+    icon: "🌙",
+    vars: {
+      '--pink':        '#f06292',
+      '--rose':        '#c2185b',
+      '--lilac':       '#ce93d8',
+      '--navy':        '#1a1033',
+      '--cream':       '#fff8f5',
+      '--gold':        '#ffd54f',
+      '--glass':       'rgba(255,255,255,0.10)',
+      '--glass-border':'rgba(255,255,255,0.18)',
+    },
+    ambient: [
+      'radial-gradient(ellipse 80% 60% at 30% 20%, rgba(206,147,216,0.18) 0%, transparent 65%)',
+      'radial-gradient(ellipse 60% 50% at 80% 80%, rgba(240,98,146,0.14) 0%, transparent 60%)',
+      'radial-gradient(ellipse 100% 80% at 50% 50%, #1a1033 40%, #0d0920 100%)',
+    ]
+  },
+  dawn: {
+    name: "Aube dorée",
+    icon: "🌅",
+    vars: {
+      '--pink':        '#ff8a65',
+      '--rose':        '#e64a19',
+      '--lilac':       '#ffcc80',
+      '--navy':        '#1c1108',
+      '--cream':       '#fff9f0',
+      '--gold':        '#ffb300',
+      '--glass':       'rgba(255,220,150,0.10)',
+      '--glass-border':'rgba(255,200,100,0.22)',
+    },
+    ambient: [
+      'radial-gradient(ellipse 80% 60% at 20% 10%, rgba(255,160,80,0.22) 0%, transparent 65%)',
+      'radial-gradient(ellipse 60% 50% at 80% 90%, rgba(255,100,50,0.15) 0%, transparent 60%)',
+      'radial-gradient(ellipse 100% 80% at 50% 50%, #1c1108 40%, #100a02 100%)',
+    ]
+  },
+  ocean: {
+    name: "Océan de nuit",
+    icon: "🌊",
+    vars: {
+      '--pink':        '#4dd0e1',
+      '--rose':        '#0097a7',
+      '--lilac':       '#80cbc4',
+      '--navy':        '#021520',
+      '--cream':       '#e0f7fa',
+      '--gold':        '#b2ebf2',
+      '--glass':       'rgba(77,208,225,0.09)',
+      '--glass-border':'rgba(77,208,225,0.20)',
+    },
+    ambient: [
+      'radial-gradient(ellipse 80% 60% at 30% 20%, rgba(0,150,180,0.20) 0%, transparent 65%)',
+      'radial-gradient(ellipse 60% 50% at 80% 80%, rgba(0,80,120,0.18) 0%, transparent 60%)',
+      'radial-gradient(ellipse 100% 80% at 50% 50%, #021520 40%, #010c14 100%)',
+    ]
+  }
+};
+
+let currentTheme = localStorage.getItem('app-theme') || 'violet';
+
+function applyTheme(id) {
+  const t = THEMES[id];
+  if (!t) return;
+  const root = document.documentElement;
+  Object.entries(t.vars).forEach(([k, v]) => root.style.setProperty(k, v));
+  const ambient = document.querySelector('.ambient');
+  if (ambient) ambient.style.background = t.ambient.join(', ');
+  document.querySelectorAll('.screen.subscreen').forEach(el => {
+    el.style.background = `${t.ambient[0]}, ${t.ambient[1]}, ${t.vars['--navy']}`;
+  });
+  currentTheme = id;
+  localStorage.setItem('app-theme', id);
+  renderThemePicker();
+  showToast(`${t.icon} ${t.name}`);
+}
+
+function renderThemePicker() {
+  const el = document.getElementById('theme-picker');
+  if (!el) return;
+  el.innerHTML = Object.entries(THEMES).map(([id, t]) => `
+    <button class="theme-btn ${currentTheme === id ? 'active' : ''}" onclick="applyTheme('${id}')">
+      <span class="theme-icon">${t.icon}</span>
+      <span class="theme-name">${t.name}</span>
+      ${currentTheme === id ? '<span class="theme-check">✓</span>' : ''}
+    </button>
+  `).join('');
+}
+
+/* ════════════════════════════════════════
+   SPOTIFY PLAYLIST
+════════════════════════════════════════ */
+// ↓ Remplace ces deux URLs par celles de ta playlist
+const PLAYLIST_EMBED = "https://open.spotify.com/embed/playlist/37i9dQZF1DWXRqgorJj26U?utm_source=generator&theme=0";
+const PLAYLIST_URL   = "https://open.spotify.com/playlist/37i9dQZF1DWXRqgorJj26U";
+const PLAYLIST_NAME  = "Notre playlist ✦";
+const PLAYLIST_DESC  = "Des sons qui me font penser à toi";
+
+/* ════════════════════════════════════════
+   SURPRISE PHOTO (signal 23)
+   → Place ta photo dans le même dossier que index.html
+     et mets son nom de fichier ici
+════════════════════════════════════════ */
+const SURPRISE_PHOTO_SRC = "1000020019.jpg";
 
 /* ════════════════════════════════════════
    ONBOARDING
@@ -605,17 +716,35 @@ function tap(e) {
     sig = dateMsg;
   } else if (count === 23) {
     sig = { emoji: "💌", text: "Signal 23 atteint…", mood: "révélation" };
+    // Easter egg sonore : fade-in de la musique
+    const htmlAudio = document.getElementById('music');
+    if (htmlAudio && htmlAudio.paused) {
+      htmlAudio.volume = 0;
+      htmlAudio.play().catch(() => {});
+      let vol = 0;
+      const fadeIn = setInterval(() => {
+        vol = Math.min(vol + 0.03, 0.35);
+        htmlAudio.volume = vol;
+        if (vol >= 0.35) { clearInterval(fadeIn); currentAmbiance = 'lofi'; updateMusicBars(true); }
+      }, 120);
+    }
     setTimeout(() => {
       const msg = unlockMessages[Math.floor(Math.random() * unlockMessages.length)];
       document.getElementById('unlock-msg').innerHTML = msg.replace(/\n/g, '<br>');
-      const photos = getPhotos();
       const photoContainer = document.getElementById('unlock-photo-container');
-      if (photos.length > 0) {
-        const surprise = photos[Math.floor(Math.random() * photos.length)];
-        document.getElementById('unlock-photo-img').src = surprise.src;
+      const photoImg = document.getElementById('unlock-photo-img');
+      // Utilise la photo surprise dédiée en priorité, sinon la galerie
+      if (SURPRISE_PHOTO_SRC) {
+        photoImg.src = SURPRISE_PHOTO_SRC;
         photoContainer.classList.add('has-photo');
       } else {
-        photoContainer.classList.remove('has-photo');
+        const photos = getPhotos();
+        if (photos.length > 0) {
+          photoImg.src = photos[Math.floor(Math.random() * photos.length)].src;
+          photoContainer.classList.add('has-photo');
+        } else {
+          photoContainer.classList.remove('has-photo');
+        }
       }
       document.getElementById('unlock-screen').classList.add('active');
       vibrate([50, 30, 50, 30, 100]);
@@ -747,6 +876,36 @@ function secretMode() {
 function renderMoreScreen() {
   renderAmbiancePanel();
   renderCitation();
+  renderThemePicker();
+  renderPlaylist();
+}
+
+/* ════════════════════════════════════════
+   PLAYLIST
+════════════════════════════════════════ */
+function renderPlaylist() {
+  const el = document.getElementById('playlist-section');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="playlist-card">
+      <div class="playlist-header">
+        <span class="playlist-icon">🎵</span>
+        <div class="playlist-info">
+          <div class="playlist-name">${PLAYLIST_NAME}</div>
+          <div class="playlist-desc">${PLAYLIST_DESC}</div>
+        </div>
+        <a class="playlist-open" href="${PLAYLIST_URL}" target="_blank" rel="noopener">Ouvrir ↗</a>
+      </div>
+      <iframe
+        class="playlist-embed"
+        src="${PLAYLIST_EMBED}"
+        frameborder="0"
+        allowtransparency="true"
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+        loading="lazy"
+      ></iframe>
+    </div>
+  `;
 }
 
 /* ════════════════════════════════════════
@@ -1012,6 +1171,22 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 /* ════════════════════════════════════════
    INIT
 ════════════════════════════════════════ */
+// Apply saved theme on boot
+applyTheme(currentTheme);
+
+// Pre-seed Nune's birthday (23 août) if not already added
+(function seedBirthday() {
+  const list = JSON.parse(localStorage.getItem('countdowns') || '[]');
+  const already = list.some(c => c.date && c.date.endsWith('-08-23') && c.name.toLowerCase().includes('nune'));
+  if (!already) {
+    const year = new Date().getFullYear();
+    const target = new Date(`${year}-08-23`);
+    const useYear = target < new Date() ? year + 1 : year;
+    list.unshift({ id: Date.now(), name: "Anniversaire de Nune 🎂", date: `${useYear}-08-23` });
+    localStorage.setItem('countdowns', JSON.stringify(list));
+  }
+})();
+
 updateRing();
 initDailyBadge();
 checkNotifBanner();
