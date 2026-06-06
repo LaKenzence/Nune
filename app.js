@@ -9,14 +9,201 @@ let secretModeCount = 0;
 let typingInterval = null;
 let currentAmbiance = null;
 let ambianceAudio = null;
-let selectedMoodEmoji = null;
-let selectedMapEmoji = '📍';
 let currentCitationIdx = 0;
 const CIRCUMFERENCE = 2 * Math.PI * 22;
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
+   SWIPE NAVIGATION SYSTEM
+════════════════════════════════════════ */
+const TABS = ['home', 'more'];
+let currentTabIndex = 0;
+let swipeStartX = 0;
+let swipeStartY = 0;
+let swipeDeltaX = 0;
+let isSwiping = false;
+let swipeBlocked = false; // blocked when subscreen is open
+
+const wrapper = () => document.getElementById('swipe-wrapper');
+
+function getSwipeOffset() {
+  return -currentTabIndex * 100; // vw
+}
+
+function applySwipeOffset(extraPx = 0) {
+  const base = getSwipeOffset();
+  const w = wrapper();
+  if (!w) return;
+  w.style.transform = `translateX(calc(${base}vw + ${extraPx}px))`;
+}
+
+function switchTab(name, idx) {
+  // If a subscreen is open, don't switch
+  if (document.querySelector('.screen.subscreen.slide-in')) return;
+
+  currentTabIndex = idx;
+  const w = wrapper();
+  if (!w) return;
+  w.classList.remove('swiping');
+  w.style.transform = `translateX(${getSwipeOffset()}vw)`;
+
+  // Update nav active state
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  const tabEl = document.getElementById('tab-' + name);
+  if (tabEl) tabEl.classList.add('active');
+
+  // Update dots
+  document.querySelectorAll('.swipe-dot').forEach((d, i) => {
+    d.classList.toggle('active', i === currentTabIndex);
+  });
+
+  // Trigger screen-specific logic
+  if (name === 'more') renderMoreScreen();
+
+  // Haptic
+  if (navigator.vibrate) navigator.vibrate(8);
+}
+
+// Touch swipe handling
+function initSwipe() {
+  const w = wrapper();
+  if (!w) return;
+
+  w.addEventListener('touchstart', (e) => {
+    if (document.querySelector('.screen.subscreen.slide-in')) return;
+    swipeStartX = e.touches[0].clientX;
+    swipeStartY = e.touches[0].clientY;
+    swipeDeltaX = 0;
+    isSwiping = false;
+    swipeBlocked = false;
+  }, { passive: true });
+
+  w.addEventListener('touchmove', (e) => {
+    if (document.querySelector('.screen.subscreen.slide-in')) return;
+    if (swipeBlocked) return;
+
+    const dx = e.touches[0].clientX - swipeStartX;
+    const dy = e.touches[0].clientY - swipeStartY;
+
+    // If first move is more vertical than horizontal, block horizontal swipe
+    if (!isSwiping && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
+      swipeBlocked = true;
+      return;
+    }
+
+    if (!isSwiping && Math.abs(dx) > 8) {
+      isSwiping = true;
+      w.classList.add('swiping');
+    }
+
+    if (!isSwiping) return;
+
+    swipeDeltaX = dx;
+
+    // Resist at edges
+    let delta = dx;
+    if ((currentTabIndex === 0 && dx > 0) || (currentTabIndex === TABS.length - 1 && dx < 0)) {
+      delta = dx * 0.2;
+    }
+
+    applySwipeOffset(delta);
+  }, { passive: true });
+
+  w.addEventListener('touchend', () => {
+    if (!isSwiping) return;
+    w.classList.remove('swiping');
+
+    const threshold = window.innerWidth * 0.25;
+    if (swipeDeltaX < -threshold && currentTabIndex < TABS.length - 1) {
+      switchTab(TABS[currentTabIndex + 1], currentTabIndex + 1);
+    } else if (swipeDeltaX > threshold && currentTabIndex > 0) {
+      switchTab(TABS[currentTabIndex - 1], currentTabIndex - 1);
+    } else {
+      // Snap back
+      applySwipeOffset(0);
+      setTimeout(() => w.classList.remove('swiping'), 0);
+    }
+    isSwiping = false;
+    swipeDeltaX = 0;
+  }, { passive: true });
+}
+
+/* ════════════════════════════════════════
+   SUBSCREEN PUSH NAVIGATION
+════════════════════════════════════════ */
+let navigationStack = [];
+
+function pushScreen(name) {
+  const w = wrapper();
+
+  if (w) {
+    // Store current swipe offset to keep it when pushing back
+    w.dataset.swipeIdx = currentTabIndex;
+    w.classList.add('push-back');
+    w.style.setProperty('--swipe-offset', `${getSwipeOffset()}vw`);
+    w.style.transform = `translateX(calc(${getSwipeOffset()}vw - 28px)) scale(0.97)`;
+    w.style.opacity = '0.65';
+    w.style.transition = 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.32s ease';
+    w.style.pointerEvents = 'none';
+  }
+
+  navigationStack.push(name);
+
+  const screenEl = document.getElementById('screen-' + name);
+  if (!screenEl) return;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      screenEl.classList.add('slide-in');
+    });
+  });
+
+  document.getElementById('nav-main').classList.add('hidden');
+
+  if (name === 'history')   renderHistory();
+  if (name === 'countdown') renderCountdowns();
+  if (name === 'gallery')   renderGallery();
+  if (name === 'letter')    renderLetter();
+
+  if (navigator.vibrate) navigator.vibrate(8);
+}
+
+function goBack() {
+  const currentSubscreen = document.querySelector('.screen.subscreen.slide-in');
+  if (!currentSubscreen) return;
+
+  currentSubscreen.classList.remove('slide-in');
+  navigationStack.pop();
+
+  if (navigationStack.length === 0) {
+    const w = wrapper();
+    if (w) {
+      w.style.transform = `translateX(${getSwipeOffset()}vw)`;
+      w.style.opacity = '';
+      w.style.pointerEvents = '';
+      w.classList.remove('push-back');
+      setTimeout(() => { w.style.transition = ''; }, 350);
+    }
+    document.getElementById('nav-main').classList.remove('hidden');
+  }
+
+  if (navigator.vibrate) navigator.vibrate(8);
+}
+
+// Hardware back button (Android)
+window.addEventListener('popstate', () => {
+  if (navigationStack.length > 0) {
+    goBack();
+  }
+});
+
+// Push dummy state so we can intercept the back button
+function pushHistoryState() {
+  history.pushState({ app: '23signals' }, '');
+}
+
+/* ════════════════════════════════════════
    SIGNALS
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 const signals = [
   { emoji: "🌙", text: "Quelque chose de doux s'aligne ce soir.", mood: "calme" },
   { emoji: "✨", text: "23 est là, dans l'espace entre deux pensées.", mood: "mystère" },
@@ -48,10 +235,6 @@ const signals = [
   { emoji: "🫀", text: "Ce battement-là, c'est à cause de toi.", mood: "amour" },
 ];
 
-/* ══════════════════════════════════════════
-   MESSAGES PERSONNALISÉS CACHÉS
-   → Remplace ces textes par tes vrais souvenirs
-══════════════════════════════════════════ */
 const personalSignals = {
   3:  { emoji: "🌙", text: "Tu te souviens du soir où on a regardé le ciel ensemble ?\nMoi oui. Tout le temps.", mood: "souvenir" },
   7:  { emoji: "💌", text: "Ce moment précis où j'ai su.\nTu portais ce sourire-là.", mood: "révélation" },
@@ -79,10 +262,6 @@ const chatResponses = {
   "manque|miss": { emoji: "💫", text: "La distance ne change rien à ce qui est réel.", mood: "connexion" },
 };
 
-/* ══════════════════════════════════════════
-   CITATIONS CACHÉES
-   → Remplace/ajoute tes propres citations pour elle
-══════════════════════════════════════════ */
 const citations = [
   { text: "Il y a des gens qui éclairent la vie rien qu'en étant là.", author: "— pour toi" },
   { text: "Tu mérites un amour qui n'a pas peur de lui-même.", author: "— R. H. Sin" },
@@ -96,45 +275,23 @@ const citations = [
   { text: "Ce qui compte ne se compte pas.", author: "— Antoine de Saint-Exupéry" },
 ];
 
-/* ══════════════════════════════════════════
-   LETTRE INTIME
-   → Remplace ce texte par ta vraie lettre
-══════════════════════════════════════════ */
 const LETTER = {
   salutation: "Nune,",
-  body: `Il y a des choses qu'on ne dit pas facilement.
-Pas parce qu'elles ne sont pas vraies,
-mais parce qu'elles sont trop vraies.
-
-J'ai construit ces signaux pour toi.
-Chaque tap, chaque message — c'est moi qui pense à toi
-dans le silence de quelque chose que les mots n'atteignent pas tout à fait.
-
-Tu mérites d'être vue.
-Tu mérites d'être choisie.
-Tu mérites que quelqu'un remarque
-les petits détails qui font que tu es toi.
-
-Alors voilà.
-Je les remarque.`,
+  body: `Il y a des choses qu'on ne dit pas facilement.\nPas parce qu'elles ne sont pas vraies,\nmais parce qu'elles sont trop vraies.\n\nJ'ai construit ces signaux pour toi.\nChaque tap, chaque message — c'est moi qui pense à toi\ndans le silence de quelque chose que les mots n'atteignent pas tout à fait.\n\nTu mérites d'être vue.\nTu mérites d'être choisie.\nTu mérites que quelqu'un remarque\nles petits détails qui font que tu es toi.\n\nAlors voilà.\nJe les remarque.`,
   signature: "— toujours, quelqu'un qui fait attention ✦",
   date: "Pour toi, pour toujours."
 };
 
-/* ══════════════════════════════════════════
-   AMBIANCES MUSICALES
-   → Remplace les src par tes vrais fichiers audio
-══════════════════════════════════════════ */
 const ambiances = [
-  { id: "lofi",   icon: "🌙", name: "Lo-fi",   sub: "doux & calme",  src: "lofi.mp3" },
+  { id: "lofi",   icon: "🌙", name: "Lo-fi",   sub: "doux & calme",  src: "lo-fi.mp3" },
   { id: "piano",  icon: "🎹", name: "Piano",   sub: "mélancolique",  src: "piano.mp3" },
   { id: "rain",   icon: "🌧️", name: "Pluie",   sub: "cocooning",     src: "rain.mp3" },
   { id: "cafe",   icon: "☕", name: "Café",    sub: "chaleureux",    src: "cafe.mp3" },
 ];
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    ONBOARDING
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 const ONBOARDING_STEPS = [
   {
     visual: "✨",
@@ -149,7 +306,7 @@ const ONBOARDING_STEPS = [
   {
     visual: "🌙",
     title: "Ton espace,\ntes souvenirs",
-    text: "Photos, dates importantes, capsules du futur…\nTout est là, rien ne disparaît."
+    text: "Photos, dates importantes, musique…\nTout est là, rien ne disparaît."
   },
   {
     visual: "💖",
@@ -186,7 +343,6 @@ function renderOnboardingStep(idx) {
     </div>
   `;
 
-  // update dots
   document.querySelectorAll('.onboarding-dot').forEach((d, i) => {
     d.classList.toggle('active', i === idx);
   });
@@ -194,7 +350,6 @@ function renderOnboardingStep(idx) {
 
 function nextOnboardingStep() {
   if (onboardingStep === ONBOARDING_STEPS.length - 1) {
-    // last step — save name if entered
     const nameInput = document.getElementById('onboarding-name');
     if (nameInput && nameInput.value.trim()) {
       localStorage.setItem('user-name', nameInput.value.trim());
@@ -220,9 +375,9 @@ function finishOnboarding() {
   }, 500);
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    DAILY SIGNAL
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function getDailySignal() {
   const today = new Date().toDateString();
   const saved = localStorage.getItem('daily-signal-date');
@@ -236,9 +391,9 @@ function getDailySignal() {
   return signals[idx];
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    STARS CANVAS
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 (function() {
   const canvas = document.getElementById('stars-canvas');
   const ctx = canvas.getContext('2d');
@@ -273,9 +428,9 @@ function getDailySignal() {
   window.addEventListener('resize', () => { resize(); initStars(); });
 })();
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    RING
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function updateRing() {
   const fill = document.getElementById('ring-fill');
   const progress = Math.min(count / 23, 1);
@@ -283,9 +438,9 @@ function updateRing() {
   document.getElementById('count-display').textContent = count;
 }
 
-/* ══════════════════════════════════════════
-   TYPING — BUG FIX
-══════════════════════════════════════════ */
+/* ════════════════════════════════════════
+   TYPING
+════════════════════════════════════════ */
 function typeText(text, el, speed = 22) {
   if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
   el.innerHTML = "";
@@ -297,9 +452,9 @@ function typeText(text, el, speed = 22) {
   }, speed);
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    TIME / DATE MESSAGES
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function getTimeMessage() {
   const h = new Date().getHours();
   const name = localStorage.getItem('user-name') || 'Nune';
@@ -316,9 +471,9 @@ function getDateMessage() {
   return null;
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    PARTICLES + CONFETTI
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 const PARTICLES = ["💫", "✨", "🌸", "⭐", "💖", "✦", "🫧", "💛"];
 function spawnParticles(x, y) {
   const n = 5 + Math.floor(Math.random() * 4);
@@ -355,9 +510,9 @@ function spawnConfetti(total = 60) {
   }
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    RIPPLE + TOAST + VIBRATE
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function spawnRipple(e, card) {
   const rect = card.getBoundingClientRect();
   const x = (e?.clientX ?? rect.left + rect.width/2) - rect.left;
@@ -390,9 +545,9 @@ function setCard(sig) {
   tag.classList.add('visible');
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    HISTORY
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function getHistory() { try { return JSON.parse(localStorage.getItem('signal-history') || '[]'); } catch { return []; } }
 function saveHistory() { localStorage.setItem('signal-history', JSON.stringify(signalHistory)); }
 let signalHistory = getHistory();
@@ -425,9 +580,9 @@ function renderHistory() {
 
 function clearHistory() { signalHistory = []; saveHistory(); renderHistory(); showToast("Historique effacé 🌙"); }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    TAP
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function tap(e) {
   count++;
   localStorage.setItem('signal-count', count.toString());
@@ -488,9 +643,9 @@ function closeUnlock() {
   showToast("Le cycle recommence… 🌙");
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    SEND (chat)
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function send() {
   const val = document.getElementById('input').value.trim().toLowerCase();
   if (!val) return;
@@ -505,9 +660,9 @@ function send() {
   document.getElementById('input').value = "";
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    AMBIANCES MUSICALES
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function renderAmbiancePanel() {
   const el = document.getElementById('ambiance-grid');
   if (!el) return;
@@ -521,7 +676,6 @@ function renderAmbiancePanel() {
 }
 
 function playAmbiance(id) {
-  // Stop whatever is playing
   if (ambianceAudio) { ambianceAudio.pause(); ambianceAudio = null; }
   const htmlAudio = document.getElementById('music');
   if (htmlAudio) htmlAudio.pause();
@@ -536,11 +690,10 @@ function playAmbiance(id) {
   const a = ambiances.find(x => x.id === id);
   if (!a) return;
 
-  // Try HTML audio element first for lofi (uses the <audio> tag src)
   if (id === 'lofi' && htmlAudio) {
     htmlAudio.volume = 0.35;
     htmlAudio.play().catch(() => showToast(`Ajoute le fichier ${a.src} 🎵`));
-    ambianceAudio = null; // using htmlAudio instead
+    ambianceAudio = null;
   } else {
     ambianceAudio = new Audio(a.src);
     ambianceAudio.loop = true;
@@ -554,11 +707,9 @@ function playAmbiance(id) {
   showToast(`${a.icon} ${a.name} — en cours`);
 }
 
-// Bouton musique sur l'écran home — toggle lofi
 function toggleMusic() {
   const htmlAudio = document.getElementById('music');
   if (currentAmbiance === 'lofi' || (htmlAudio && !htmlAudio.paused)) {
-    // stop
     if (htmlAudio) htmlAudio.pause();
     if (ambianceAudio) { ambianceAudio.pause(); ambianceAudio = null; }
     currentAmbiance = null;
@@ -576,9 +727,9 @@ function updateMusicBars(playing) {
   if (icon) icon.textContent = playing ? '⏸' : '🎵';
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    SECRET MODE
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function secretMode() {
   secretModeCount++;
   if (secretModeCount === 3) {
@@ -590,96 +741,17 @@ function secretMode() {
   }
 }
 
-/* ══════════════════════════════════════════
-   TABS
-══════════════════════════════════════════ */
-// Screens accessible from "Plus" tab — push navigation (slide from right)
-const MORE_CHILDREN = ['gallery', 'letter', 'countdown', 'history'];
-let navigationStack = [];
-
-function switchTab(name) {
-  const isSubscreen = MORE_CHILDREN.includes(name);
-  if (isSubscreen) {
-    pushScreen(name);
-    return;
-  }
-
-  // Reset all subscreen state
-  navigationStack = [];
-  document.querySelectorAll('.screen.subscreen').forEach(s => s.classList.remove('slide-in'));
-  document.querySelectorAll('.screen:not(.subscreen)').forEach(s => s.classList.remove('active', 'push-back'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-
-  const screenEl = document.getElementById('screen-' + name);
-  if (screenEl) screenEl.classList.add('active');
-
-  const tabEl = document.getElementById('tab-' + name);
-  if (tabEl) tabEl.classList.add('active');
-
-  document.getElementById('nav-main').classList.remove('hidden');
-
-  if (name === 'mood')    renderMoodScreen();
-  if (name === 'capsule') renderCapsules();
-  if (name === 'map')     { renderMap(); bindMapTap(); }
-  if (name === 'more')    renderMoreScreen();
-}
-
-function pushScreen(name) {
-  // Find current visible screen to push back
-  const currentVisible =
-    document.querySelector('.screen.subscreen.slide-in') ||
-    document.querySelector('.screen.active:not(.subscreen)');
-
-  if (currentVisible) {
-    currentVisible.classList.add('push-back');
-    navigationStack.push(currentVisible.id.replace('screen-', ''));
-  }
-
-  const screenEl = document.getElementById('screen-' + name);
-  if (!screenEl) return;
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      screenEl.classList.add('slide-in');
-    });
-  });
-
-  document.getElementById('nav-main').classList.add('hidden');
-
-  if (name === 'history')   renderHistory();
-  if (name === 'countdown') renderCountdowns();
-  if (name === 'gallery')   renderGallery();
-  if (name === 'letter')    renderLetter();
-}
-
-function goBack() {
-  const currentSubscreen = document.querySelector('.screen.subscreen.slide-in');
-  if (!currentSubscreen) return;
-
-  currentSubscreen.classList.remove('slide-in');
-
-  const prevName = navigationStack.pop();
-  if (prevName) {
-    const prevEl = document.getElementById('screen-' + prevName);
-    if (prevEl) prevEl.classList.remove('push-back');
-  }
-
-  if (navigationStack.length === 0) {
-    document.getElementById('nav-main').classList.remove('hidden');
-  }
-}
-
-/* ══════════════════════════════════════════
-   MORE SCREEN (ambiances + citations)
-══════════════════════════════════════════ */
+/* ════════════════════════════════════════
+   MORE SCREEN
+════════════════════════════════════════ */
 function renderMoreScreen() {
   renderAmbiancePanel();
   renderCitation();
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    CITATIONS
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function renderCitation() {
   const el = document.getElementById('citation-text-el');
   const au = document.getElementById('citation-author-el');
@@ -699,14 +771,9 @@ function nextCitation() {
   renderCitation();
 }
 
-function getDailyCitation() {
-  const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
-  return citations[dayOfYear % citations.length];
-}
-
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    LETTER SCREEN
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function renderLetter() {
   const el = document.getElementById('letter-body-text');
   const sal = document.getElementById('letter-salutation');
@@ -719,320 +786,9 @@ function renderLetter() {
   el.innerHTML = LETTER.body.replace(/\n/g, '<br>');
 }
 
-/* ══════════════════════════════════════════
-   MOOD TRACKER
-══════════════════════════════════════════ */
-const MOODS = [
-  { emoji: "🌟", label: "rayonnante" },
-  { emoji: "😊", label: "bien" },
-  { emoji: "😶", label: "neutre" },
-  { emoji: "🌧️", label: "mélancolique" },
-  { emoji: "💔", label: "difficile" },
-];
-
-function getMoods() { try { return JSON.parse(localStorage.getItem('mood-log') || '{}'); } catch { return {}; } }
-function saveMoods(data) { localStorage.setItem('mood-log', JSON.stringify(data)); }
-
-function selectMood(emoji) {
-  selectedMoodEmoji = emoji;
-  document.querySelectorAll('.mood-btn').forEach(b => {
-    b.classList.toggle('selected', b.dataset.emoji === emoji);
-  });
-}
-
-function saveTodayMood() {
-  if (!selectedMoodEmoji) { showToast("Choisis une humeur d'abord ✦"); return; }
-  const note = document.getElementById('mood-note')?.value?.trim() || '';
-  const today = new Date().toISOString().slice(0, 10);
-  const data = getMoods();
-  data[today] = { emoji: selectedMoodEmoji, note };
-  saveMoods(data);
-  showToast("Humeur enregistrée 💖");
-  selectedMoodEmoji = null;
-  renderMoodScreen();
-}
-
-function renderMoodScreen() {
-  const data = getMoods();
-  const today = new Date().toISOString().slice(0, 10);
-
-  // Today card
-  const todayEntry = data[today];
-  const moodEl = document.getElementById('mood-today-area');
-  if (moodEl) {
-    moodEl.innerHTML = `
-      <div class="mood-today-label">Comment tu vas aujourd'hui ?</div>
-      <div class="mood-emojis">
-        ${MOODS.map(m => `
-          <button class="mood-btn ${todayEntry?.emoji === m.emoji ? 'selected' : ''}"
-            data-emoji="${m.emoji}" onclick="selectMood('${m.emoji}')">
-            <span>${m.emoji}</span>
-            <span class="mood-btn-label">${m.label}</span>
-          </button>
-        `).join('')}
-      </div>
-      <textarea class="mood-note-input" id="mood-note" placeholder="Un mot sur ta journée…" rows="2">${todayEntry?.note || ''}</textarea>
-      <button class="btn-save-mood" onclick="saveTodayMood()">Enregistrer ✦</button>
-    `;
-  }
-
-  // Last 28 days grid
-  const gridEl = document.getElementById('mood-grid');
-  if (gridEl) {
-    const days = [];
-    for (let i = 27; i >= 0; i--) {
-      const d = new Date(); d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      days.push({ key, d, entry: data[key] });
-    }
-    gridEl.innerHTML = days.map(({ key, d, entry }) => `
-      <div class="mood-day-cell ${entry ? 'has-mood' : ''} ${key === today ? 'today' : ''}"
-           title="${d.toLocaleDateString('fr-FR', {day:'numeric',month:'short'})}${entry ? ' — '+entry.emoji : ''}">
-        <div class="mood-day-emoji">${entry ? entry.emoji : ''}</div>
-        <div class="mood-day-date">${d.getDate()}</div>
-      </div>
-    `).join('');
-  }
-
-  // Stats
-  const statsEl = document.getElementById('mood-stats');
-  if (statsEl) {
-    const entries = Object.values(data);
-    const total = entries.length;
-    // most frequent mood
-    const freq = {};
-    entries.forEach(e => { freq[e.emoji] = (freq[e.emoji] || 0) + 1; });
-    const topEmoji = Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0] || '✨';
-    // streak
-    let streak = 0;
-    for (let i = 0; ; i++) {
-      const d = new Date(); d.setDate(d.getDate() - i);
-      const k = d.toISOString().slice(0, 10);
-      if (data[k]) streak++; else break;
-    }
-    statsEl.innerHTML = `
-      <div class="mood-stat"><div class="mood-stat-val">${total}</div><div class="mood-stat-label">jours notés</div></div>
-      <div class="mood-stat"><div class="mood-stat-val">${topEmoji}</div><div class="mood-stat-label">humeur fréquente</div></div>
-      <div class="mood-stat"><div class="mood-stat-val">${streak}</div><div class="mood-stat-label">jours de suite</div></div>
-    `;
-  }
-}
-
-/* ══════════════════════════════════════════
-   CAPSULE TEMPORELLE
-══════════════════════════════════════════ */
-function getCapsules() { try { return JSON.parse(localStorage.getItem('capsules') || '[]'); } catch { return []; } }
-function saveCapsules(list) { localStorage.setItem('capsules', JSON.stringify(list)); }
-
-function addCapsule() {
-  const name    = document.getElementById('cap-name')?.value?.trim();
-  const date    = document.getElementById('cap-date')?.value;
-  const message = document.getElementById('cap-message')?.value?.trim();
-  if (!name || !date || !message) { showToast("Remplis tous les champs ✦"); return; }
-
-  const unlockDate = new Date(date + 'T00:00:00');
-  if (unlockDate <= new Date()) { showToast("Choisis une date dans le futur 🌙"); return; }
-
-  const list = getCapsules();
-  list.push({ id: Date.now(), name, date, message, created: new Date().toISOString() });
-  saveCapsules(list);
-  document.getElementById('cap-name').value = '';
-  document.getElementById('cap-date').value = '';
-  document.getElementById('cap-message').value = '';
-  renderCapsules();
-  showToast("Capsule scellée 🔒");
-  vibrate([20, 10, 20, 10, 40]);
-}
-
-function deleteCapsule(id) {
-  saveCapsules(getCapsules().filter(c => c.id !== id));
-  renderCapsules();
-}
-
-function renderCapsules() {
-  const list = getCapsules();
-  const el = document.getElementById('capsule-list');
-  if (!el) return;
-
-  if (!list.length) {
-    el.innerHTML = '<div style="text-align:center;opacity:0.35;font-style:italic;font-size:14px;padding:30px 0">Aucune capsule encore…<br>Écris un message pour le futur ✦</div>';
-    return;
-  }
-
-  const now = new Date();
-  el.innerHTML = list.map(c => {
-    const unlock = new Date(c.date + 'T00:00:00');
-    const isUnlocked = now >= unlock;
-    const created = new Date(c.created);
-    const totalMs = unlock - created;
-    const elapsedMs = now - created;
-    const progress = Math.min(Math.max(elapsedMs / totalMs, 0), 1);
-
-    const daysLeft = Math.ceil((unlock - now) / 86400000);
-    const timeLeftStr = isUnlocked
-      ? ''
-      : daysLeft === 1 ? 'Demain !' : `${daysLeft} jours restants`;
-
-    return `
-      <div class="capsule-card ${isUnlocked ? 'unlocked' : 'locked'}">
-        <div class="capsule-top">
-          <div class="capsule-icon">${isUnlocked ? '💌' : '🔒'}</div>
-          <button class="capsule-delete" onclick="deleteCapsule(${c.id})">✕</button>
-        </div>
-        <div class="capsule-name">${c.name}</div>
-        <div class="capsule-unlock-date">
-          ${isUnlocked ? '✦ Débloquée le ' : 'S\'ouvre le '}
-          ${unlock.toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'})}
-        </div>
-        ${!isUnlocked ? `
-          <div class="capsule-preview">${c.message.substring(0, 60)}${c.message.length > 60 ? '…' : ''}</div>
-          <div class="capsule-countdown-bar">
-            <div class="capsule-countdown-fill" style="width:${Math.round(progress*100)}%"></div>
-          </div>
-          <div class="capsule-time-left">${timeLeftStr}</div>
-        ` : `
-          <div class="capsule-unlocked-badge">✦ Message révélé</div>
-          <div class="capsule-message">${c.message}</div>
-        `}
-      </div>
-    `;
-  }).join('');
-
-  // Check for newly unlocked capsules (notify once)
-  list.forEach(c => {
-    const unlock = new Date(c.date + 'T00:00:00');
-    const notifiedKey = 'capsule-notified-' + c.id;
-    if (now >= unlock && !localStorage.getItem(notifiedKey)) {
-      localStorage.setItem(notifiedKey, '1');
-      setTimeout(() => {
-        showToast(`💌 "${c.name}" s'est débloquée !`);
-        spawnConfetti(50);
-        vibrate([50, 30, 50, 30, 100]);
-      }, 500);
-    }
-  });
-}
-
-/* ══════════════════════════════════════════
-   CARTE DES LIEUX
-══════════════════════════════════════════ */
-const MAP_EMOJIS = ['📍','💖','🌹','⭐','🏡','🎭','☕','✈️','🌊','🌸'];
-
-function getPlaces() { try { return JSON.parse(localStorage.getItem('map-places') || '[]'); } catch { return []; } }
-function savePlaces(list) { localStorage.setItem('map-places', JSON.stringify(list)); }
-
-function selectMapEmoji(emoji) {
-  selectedMapEmoji = emoji;
-  document.querySelectorAll('.map-emoji-opt').forEach(b => {
-    b.classList.toggle('selected', b.dataset.emoji === emoji);
-  });
-}
-
-function addPlace() {
-  const name = document.getElementById('place-name')?.value?.trim();
-  const desc = document.getElementById('place-desc')?.value?.trim();
-  const x    = parseFloat(document.getElementById('place-x')?.value) || 50;
-  const y    = parseFloat(document.getElementById('place-y')?.value) || 50;
-  if (!name) { showToast("Donne un nom au lieu ✦"); return; }
-  const list = getPlaces();
-  list.push({ id: Date.now(), name, desc: desc || '', emoji: selectedMapEmoji, x: Math.min(Math.max(x,5),95), y: Math.min(Math.max(y,5),90) });
-  savePlaces(list);
-  document.getElementById('place-name').value = '';
-  document.getElementById('place-desc').value = '';
-  renderMap();
-  showToast(`${selectedMapEmoji} ${name} ajouté ✦`);
-}
-
-function deletePlace(id) {
-  savePlaces(getPlaces().filter(p => p.id !== id));
-  renderMap();
-}
-
-function renderMap() {
-  const places = getPlaces();
-
-  // Render pins on visual map
-  const mapVisual = document.getElementById('map-visual');
-  if (mapVisual) {
-    // Remove old pins
-    mapVisual.querySelectorAll('.map-pin').forEach(p => p.remove());
-    places.forEach(p => {
-      const pin = document.createElement('div');
-      pin.className = 'map-pin';
-      pin.style.left = p.x + '%';
-      pin.style.top  = p.y + '%';
-      const colors = ['#f06292','#ce93d8','#ffd54f','#80cbc4','#ff8a65'];
-      const color = colors[p.id % colors.length];
-      pin.innerHTML = `
-        <div class="map-pin-dot" style="background:${color}">
-          <div class="map-pin-dot-inner">${p.emoji}</div>
-        </div>
-        <div class="map-pin-label">${p.name}</div>
-      `;
-      pin.addEventListener('click', () => pin.classList.toggle('show-label'));
-      mapVisual.appendChild(pin);
-    });
-  }
-
-  // Render list
-  const listEl = document.getElementById('map-places-list');
-  if (listEl) {
-    if (!places.length) {
-      listEl.innerHTML = '<div style="text-align:center;opacity:0.35;font-style:italic;font-size:14px;padding:20px 0">Aucun lieu encore…<br>Ajoute vos endroits spéciaux ✦</div>';
-      return;
-    }
-    listEl.innerHTML = places.map(p => `
-      <div class="map-place-item">
-        <div class="map-place-emoji">${p.emoji}</div>
-        <div class="map-place-body">
-          <div class="map-place-name">${p.name}</div>
-          ${p.desc ? `<div class="map-place-desc">${p.desc}</div>` : ''}
-        </div>
-        <button class="map-place-delete" onclick="deletePlace(${p.id})">✕</button>
-      </div>
-    `).join('');
-  }
-
-  // Render emoji picker
-  const emojiPicker = document.getElementById('map-emoji-picker');
-  if (emojiPicker) {
-    emojiPicker.innerHTML = MAP_EMOJIS.map(e => `
-      <button class="map-emoji-opt ${selectedMapEmoji === e ? 'selected' : ''}"
-        data-emoji="${e}" onclick="selectMapEmoji('${e}')">${e}</button>
-    `).join('');
-  }
-
-  bindMapTap();
-}
-
-// Bind tap on map to set pin coordinates — called each time map renders
-function bindMapTap() {
-  const mapEl = document.getElementById('map-visual');
-  if (!mapEl || mapEl._tapBound) return;
-  mapEl._tapBound = true;
-  mapEl.addEventListener('click', (e) => {
-    if (e.target.closest('.map-pin')) return;
-    const rect = mapEl.getBoundingClientRect();
-    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-    const y = Math.round(((e.clientY - rect.top)  / rect.height) * 100);
-    const xInput = document.getElementById('place-x');
-    const yInput = document.getElementById('place-y');
-    if (xInput) xInput.value = x;
-    if (yInput) yInput.value = y;
-    // Visual feedback: flash a ghost pin at tap position
-    const ghost = document.createElement('div');
-    ghost.style.cssText = `position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);font-size:20px;pointer-events:none;animation:floatUp 0.8s ease-out forwards;z-index:10`;
-    ghost.textContent = selectedMapEmoji || '📍';
-    mapEl.appendChild(ghost);
-    setTimeout(() => ghost.remove(), 900);
-    const btn = document.getElementById('map-add-btn');
-    if (btn) { btn.style.background = 'linear-gradient(135deg, #ffd54f, #f06292)'; setTimeout(() => btn.style.background = '', 800); }
-  });
-}
-
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    COUNTDOWNS + BIRTHDAY
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function getCountdowns() { try { return JSON.parse(localStorage.getItem('countdowns') || '[]'); } catch { return []; } }
 function saveCountdowns(list) { localStorage.setItem('countdowns', JSON.stringify(list)); }
 
@@ -1140,9 +896,9 @@ setInterval(() => {
   });
 }, 1000);
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    GALLERY
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function getPhotos() { try { return JSON.parse(localStorage.getItem('gallery-photos') || '[]'); } catch { return []; } }
 function savePhotos(list) { localStorage.setItem('gallery-photos', JSON.stringify(list)); }
 
@@ -1191,9 +947,9 @@ function renderGallery() {
   grid.innerHTML = html;
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    NOTIFICATIONS
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function requestNotifPermission() {
   if (!('Notification' in window)) { showToast("Notifications non supportées 🙁"); return; }
   Notification.requestPermission().then(perm => {
@@ -1231,9 +987,9 @@ function scheduleNotifications() {
   }
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    DAILY BADGE
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 function initDailyBadge() {
   const sig = getDailySignal();
   const badge = document.getElementById('daily-badge');
@@ -1248,14 +1004,14 @@ function checkNotifBanner() {
   if (Notification.permission === 'default') document.getElementById('notif-banner').classList.add('show');
 }
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    PWA
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
-/* ══════════════════════════════════════════
+/* ════════════════════════════════════════
    INIT
-══════════════════════════════════════════ */
+════════════════════════════════════════ */
 updateRing();
 initDailyBadge();
 checkNotifBanner();
@@ -1265,4 +1021,11 @@ currentCitationIdx = Math.floor((new Date() - new Date(new Date().getFullYear(),
 if (localStorage.getItem('notif-granted') && Notification.permission === 'granted') {
   scheduleNotifications();
 }
+
+// Init swipe system
+initSwipe();
+
+// Push initial history state for back button support
+pushHistoryState();
+
 setTimeout(checkOnboarding, 300);
