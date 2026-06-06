@@ -388,7 +388,7 @@ function renderThemePicker() {
    SPOTIFY PLAYLIST
 ════════════════════════════════════════ */
 // ↓ Remplace ces deux URLs par celles de ta playlist
-const PLAYLIST_EMBED = "https://open.spotify.com/embed/playlist/37i9dQZF1DWXRqgorJj26U?utm_source=generator&theme=0";
+const PLAYLIST_EMBED = "https://open.spotify.com/embed/playlist/6SPrATTTNJhJHgomlgqRFN?utm_source=generator&theme=0";
 const PLAYLIST_URL   = "https://open.spotify.com/playlist/6SPrATTTNJhJHgomlgqRFN?si=Y-N_e1VlRK2xtCGc_UsPwg&pi=D7O2C2NzTsGlP";
 const PLAYLIST_NAME  = "Notre playlist ✦";
 const PLAYLIST_DESC  = "Des sons qui me font penser à toi";
