@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#c2185b">
 <title>Twenty Three – Pour Nune</title>
 <link rel="manifest" href="manifest.json">
@@ -51,72 +51,138 @@
   <button class="unlock-close" onclick="closeUnlock()">continuer ✨</button>
 </div>
 
-<!-- ════════ HOME ════════ -->
-<div class="screen active" id="screen-home">
-  <div class="container">
-    <div class="header">
-      <h1>Twenty Three</h1>
-      <div class="subtitle">signaux pour nune</div>
-    </div>
+<!-- ════════ SWIPE CONTAINER ════════ -->
+<div class="swipe-wrapper" id="swipe-wrapper">
 
-    <div class="daily-badge" id="daily-badge">
-      <span>🌟</span>
-      <span id="daily-badge-text">signal du jour</span>
-    </div>
-
-    <div class="notif-banner" id="notif-banner">
-      <div class="notif-card">
-        <div class="notif-icon">💌</div>
-        <div class="notif-body">
-          <div class="notif-title">Signaux en direct</div>
-          <div class="notif-sub">Reçois des pensées à tout moment</div>
-        </div>
-        <button class="notif-btn" onclick="requestNotifPermission()">Activer</button>
+  <!-- ════════ HOME ════════ -->
+  <div class="screen active" id="screen-home" data-tab="home">
+    <div class="container">
+      <div class="header">
+        <h1>Twenty Three</h1>
+        <div class="subtitle">signaux pour nune</div>
       </div>
-    </div>
 
-    <div class="signal-ring">
-      <svg width="56" height="56" viewBox="0 0 56 56">
-        <defs>
-          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#f06292"/>
-            <stop offset="100%" stop-color="#ce93d8"/>
-          </linearGradient>
-        </defs>
-        <circle class="ring-bg" cx="28" cy="28" r="22"/>
-        <circle class="ring-fill" id="ring-fill" cx="28" cy="28" r="22"/>
-      </svg>
-      <div class="ring-label">
-        <strong id="count-display">0</strong>
-        <span>/ 23</span>
+      <div class="daily-badge" id="daily-badge">
+        <span>🌟</span>
+        <span id="daily-badge-text">signal du jour</span>
       </div>
-    </div>
 
-    <div class="card" id="card" onclick="tap(event)">
-      <div class="card-emoji" id="card-emoji">✨</div>
-      <div class="card-text" id="card-text">Touche pour commencer les signaux…</div>
-    </div>
-
-    <div class="mood-tag" id="mood-tag"></div>
-
-    <div class="input-row">
-      <input id="input" type="text" placeholder="dis quelque chose…" onkeydown="if(event.key==='Enter')send()"/>
-      <button class="btn-send" onclick="send()">→</button>
-    </div>
-
-    <div class="actions">
-      <button class="btn primary" onclick="tap(null)">Signal suivant ✦</button>
-      <button class="btn btn-music-row" onclick="toggleMusic()">
-        <span id="music-icon">🎵</span>
-        <div class="music-bars" id="music-bars">
-          <div class="bar"></div><div class="bar"></div>
-          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+      <div class="notif-banner" id="notif-banner">
+        <div class="notif-card">
+          <div class="notif-icon">💌</div>
+          <div class="notif-body">
+            <div class="notif-title">Signaux en direct</div>
+            <div class="notif-sub">Reçois des pensées à tout moment</div>
+          </div>
+          <button class="notif-btn" onclick="requestNotifPermission()">Activer</button>
         </div>
-      </button>
-      <button class="secret-btn" onclick="secretMode()" title="✦">✦</button>
+      </div>
+
+      <div class="signal-ring">
+        <svg width="56" height="56" viewBox="0 0 56 56">
+          <defs>
+            <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#f06292"/>
+              <stop offset="100%" stop-color="#ce93d8"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring-bg" cx="28" cy="28" r="22"/>
+          <circle class="ring-fill" id="ring-fill" cx="28" cy="28" r="22"/>
+        </svg>
+        <div class="ring-label">
+          <strong id="count-display">0</strong>
+          <span>/ 23</span>
+        </div>
+      </div>
+
+      <div class="card" id="card" onclick="tap(event)">
+        <div class="card-emoji" id="card-emoji">✨</div>
+        <div class="card-text" id="card-text">Touche pour commencer les signaux…</div>
+      </div>
+
+      <div class="mood-tag" id="mood-tag"></div>
+
+      <div class="input-row">
+        <input id="input" type="text" placeholder="dis quelque chose…" onkeydown="if(event.key==='Enter')send()"/>
+        <button class="btn-send" onclick="send()">→</button>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" onclick="tap(null)">Signal suivant ✦</button>
+        <button class="btn btn-music-row" onclick="toggleMusic()">
+          <span id="music-icon">🎵</span>
+          <div class="music-bars" id="music-bars">
+            <div class="bar"></div><div class="bar"></div>
+            <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          </div>
+        </button>
+        <button class="secret-btn" onclick="secretMode()" title="✦">✦</button>
+      </div>
     </div>
   </div>
-</div>
+
+  <!-- ════════ MORE (hub) ════════ -->
+  <div class="screen" id="screen-more" data-tab="more">
+    <div class="screen-header">
+      <div class="screen-title">Plus</div>
+      <div class="screen-sub">tout le reste ✦</div>
+    </div>
+
+    <div style="width:100%;max-width:380px;padding:0 20px;display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+      <button class="more-nav-card" onclick="pushScreen('gallery')">
+        <span class="more-nav-icon">🌸</span>
+        <div class="more-nav-body">
+          <div class="more-nav-title">Nos souvenirs</div>
+          <div class="more-nav-sub">galerie privée de photos</div>
+        </div>
+        <span class="more-nav-arrow">›</span>
+      </button>
+      <button class="more-nav-card" onclick="pushScreen('letter')">
+        <span class="more-nav-icon">💌</span>
+        <div class="more-nav-body">
+          <div class="more-nav-title">La Lettre</div>
+          <div class="more-nav-sub">pour toi, toujours</div>
+        </div>
+        <span class="more-nav-arrow">›</span>
+      </button>
+      <button class="more-nav-card" onclick="pushScreen('countdown')">
+        <span class="more-nav-icon">🗓</span>
+        <div class="more-nav-body">
+          <div class="more-nav-title">Compte à rebours</div>
+          <div class="more-nav-sub">les moments importants</div>
+        </div>
+        <span class="more-nav-arrow">›</span>
+      </button>
+      <button class="more-nav-card" onclick="pushScreen('history')">
+        <span class="more-nav-icon">🌙</span>
+        <div class="more-nav-body">
+          <div class="more-nav-title">Historique</div>
+          <div class="more-nav-sub">tous tes signaux reçus</div>
+        </div>
+        <span class="more-nav-arrow">›</span>
+      </button>
+    </div>
+
+    <!-- Citation du jour -->
+    <div class="citation-card" style="margin-bottom:16px">
+      <div class="citation-inner">
+        <div class="citation-text" id="citation-text-el"></div>
+        <div class="citation-author" id="citation-author-el"></div>
+        <button class="citation-refresh" onclick="nextCitation()" title="Suivante">↻</button>
+      </div>
+    </div>
+
+    <!-- Ambiances -->
+    <div class="music-panel">
+      <div class="screen-sub" style="margin-bottom:12px;padding:0">Ambiances musicales</div>
+      <div class="music-ambiance-grid" id="ambiance-grid"></div>
+      <div style="margin-top:10px;font-size:11px;opacity:0.25;text-align:center;letter-spacing:0.08em">
+        Ajoute lofi.mp3 · piano.mp3 · rain.mp3 · cafe.mp3 ✦
+      </div>
+    </div>
+  </div>
+
+</div><!-- /swipe-wrapper -->
 
 <!-- ════════ COUNTDOWN (subscreen) ════════ -->
 <div class="screen subscreen" id="screen-countdown">
@@ -177,168 +243,6 @@
   </div>
 </div>
 
-<!-- ════════ MOOD TRACKER ════════ -->
-<div class="screen" id="screen-mood">
-  <div class="screen-header">
-    <div class="screen-title">Comment tu vas ?</div>
-    <div class="screen-sub">ton journal d'humeur</div>
-  </div>
-
-  <div class="mood-today-card">
-    <div class="mood-today-inner">
-      <div id="mood-today-area"></div>
-    </div>
-  </div>
-
-  <div class="mood-history-section">
-    <div class="mood-history-title">Les 28 derniers jours</div>
-    <div class="mood-history-grid" id="mood-grid"></div>
-    <div class="mood-stats-row" id="mood-stats"></div>
-  </div>
-</div>
-
-<!-- ════════ CAPSULE TEMPORELLE ════════ -->
-<div class="screen" id="screen-capsule">
-  <div class="screen-header">
-    <div class="screen-title">Capsules du futur</div>
-    <div class="screen-sub">messages scellés dans le temps</div>
-  </div>
-  <div class="capsule-list" id="capsule-list"></div>
-  <div class="capsule-form" style="margin-top:16px">
-    <input class="form-input" id="cap-name" type="text" placeholder="Nom de la capsule…" maxlength="40">
-    <input class="form-input" id="cap-date" type="date">
-    <textarea class="capsule-textarea" id="cap-message" placeholder="Écris ton message pour le futur…" rows="3"></textarea>
-    <button class="btn-add" onclick="addCapsule()">Sceller la capsule 🔒</button>
-  </div>
-</div>
-
-<!-- ════════ CARTE DES LIEUX ════════ -->
-<div class="screen" id="screen-map">
-  <div class="screen-header">
-    <div class="screen-title">Notre carte</div>
-    <div class="screen-sub">les lieux qui comptent</div>
-  </div>
-
-  <div class="map-container">
-    <div class="map-visual" id="map-visual">
-      <div class="map-grid-lines"></div>
-      <!-- Continents stylisés -->
-      <svg class="map-continents" viewBox="0 0 340 200" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-        <!-- Europe -->
-        <path d="M160 52 L168 48 L175 50 L180 55 L178 62 L172 65 L168 70 L163 68 L158 63 Z" fill="#a0c8f0"/>
-        <!-- UK -->
-        <path d="M152 50 L156 47 L158 52 L154 55 Z" fill="#a0c8f0"/>
-        <!-- Scandinavie -->
-        <path d="M163 40 L170 36 L175 42 L172 48 L166 46 Z" fill="#a0c8f0"/>
-        <!-- Russie/Asie -->
-        <path d="M178 42 L220 35 L250 40 L255 55 L240 60 L210 58 L190 62 L180 58 L178 50 Z" fill="#a0c8f0"/>
-        <!-- Afrique -->
-        <path d="M162 72 L172 68 L182 72 L188 85 L185 105 L178 118 L168 120 L160 112 L157 95 L158 80 Z" fill="#a0c8f0"/>
-        <!-- Asie du Sud -->
-        <path d="M200 65 L218 62 L228 68 L230 78 L222 85 L210 82 L200 75 Z" fill="#a0c8f0"/>
-        <!-- Inde -->
-        <path d="M210 80 L218 78 L222 88 L216 98 L210 95 L207 85 Z" fill="#a0c8f0"/>
-        <!-- Asie du SE -->
-        <path d="M228 72 L245 68 L250 75 L242 80 L232 78 Z" fill="#a0c8f0"/>
-        <!-- Chine/Japon -->
-        <path d="M240 50 L258 46 L265 55 L260 62 L248 60 L240 56 Z" fill="#a0c8f0"/>
-        <path d="M268 50 L272 48 L274 54 L270 56 Z" fill="#a0c8f0"/>
-        <!-- Australie -->
-        <path d="M248 115 L268 110 L278 118 L275 132 L262 138 L250 132 L245 122 Z" fill="#a0c8f0"/>
-        <!-- Amérique du Nord -->
-        <path d="M55 38 L85 32 L100 38 L105 50 L98 60 L88 65 L75 62 L60 55 L52 46 Z" fill="#a0c8f0"/>
-        <!-- Groenland -->
-        <path d="M88 25 L100 22 L105 30 L98 36 L88 33 Z" fill="#a0c8f0"/>
-        <!-- Amérique centrale/Mexique -->
-        <path d="M75 65 L90 62 L95 70 L88 78 L78 76 L72 70 Z" fill="#a0c8f0"/>
-        <!-- Amérique du Sud -->
-        <path d="M82 82 L95 78 L102 85 L100 105 L95 122 L85 128 L76 120 L73 100 L76 88 Z" fill="#a0c8f0"/>
-        <!-- Madagascar -->
-        <path d="M188 108 L192 104 L194 112 L190 118 Z" fill="#a0c8f0"/>
-        <!-- Équateur -->
-        <line x1="0" y1="105" x2="340" y2="105" stroke="rgba(255,200,100,0.15)" stroke-width="0.8" stroke-dasharray="4,6"/>
-        <!-- Tropique du Cancer -->
-        <line x1="0" y1="80" x2="340" y2="80" stroke="rgba(255,200,100,0.08)" stroke-width="0.5" stroke-dasharray="3,8"/>
-      </svg>
-    </div>
-    <div style="font-size:10px;opacity:0.25;text-align:center;margin-top:6px;letter-spacing:0.08em">
-      Appuie sur la carte pour placer un lieu ✦
-    </div>
-    <div class="map-places-list" id="map-places-list"></div>
-  </div>
-
-  <div class="map-add-form">
-    <input class="form-input" id="place-name" type="text" placeholder="Nom du lieu (ex: Premier rendez-vous…)" maxlength="40">
-    <input class="form-input" id="place-desc" type="text" placeholder="Un souvenir… (optionnel)" maxlength="80">
-    <div id="map-emoji-picker" class="map-emoji-picker"></div>
-    <input type="hidden" id="place-x" value="50">
-    <input type="hidden" id="place-y" value="50">
-    <button class="btn-add" id="map-add-btn" onclick="addPlace()">Ajouter ce lieu ✦</button>
-  </div>
-</div>
-
-<!-- ════════ MORE (hub) ════════ -->
-<div class="screen" id="screen-more">
-  <div class="screen-header">
-    <div class="screen-title">Plus</div>
-    <div class="screen-sub">tout le reste ✦</div>
-  </div>
-
-  <!-- Accès rapide aux autres écrans -->
-  <div style="width:100%;max-width:380px;padding:0 20px;display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
-    <button class="more-nav-card" onclick="switchTab('gallery')">
-      <span class="more-nav-icon">🌸</span>
-      <div class="more-nav-body">
-        <div class="more-nav-title">Nos souvenirs</div>
-        <div class="more-nav-sub">galerie privée de photos</div>
-      </div>
-      <span class="more-nav-arrow">›</span>
-    </button>
-    <button class="more-nav-card" onclick="switchTab('letter')">
-      <span class="more-nav-icon">💌</span>
-      <div class="more-nav-body">
-        <div class="more-nav-title">La Lettre</div>
-        <div class="more-nav-sub">pour toi, toujours</div>
-      </div>
-      <span class="more-nav-arrow">›</span>
-    </button>
-    <button class="more-nav-card" onclick="switchTab('countdown')">
-      <span class="more-nav-icon">🗓</span>
-      <div class="more-nav-body">
-        <div class="more-nav-title">Compte à rebours</div>
-        <div class="more-nav-sub">les moments importants</div>
-      </div>
-      <span class="more-nav-arrow">›</span>
-    </button>
-    <button class="more-nav-card" onclick="switchTab('history')">
-      <span class="more-nav-icon">🌙</span>
-      <div class="more-nav-body">
-        <div class="more-nav-title">Historique</div>
-        <div class="more-nav-sub">tous tes signaux reçus</div>
-      </div>
-      <span class="more-nav-arrow">›</span>
-    </button>
-  </div>
-
-  <!-- Citation du jour -->
-  <div class="citation-card" style="margin-bottom:16px">
-    <div class="citation-inner">
-      <div class="citation-text" id="citation-text-el"></div>
-      <div class="citation-author" id="citation-author-el"></div>
-      <button class="citation-refresh" onclick="nextCitation()" title="Suivante">↻</button>
-    </div>
-  </div>
-
-  <!-- Ambiances -->
-  <div class="music-panel">
-    <div class="screen-sub" style="margin-bottom:12px;padding:0">Ambiances musicales</div>
-    <div class="music-ambiance-grid" id="ambiance-grid"></div>
-    <div style="margin-top:10px;font-size:11px;opacity:0.25;text-align:center;letter-spacing:0.08em">
-      Ajoute lofi.mp3 · piano.mp3 · rain.mp3 · cafe.mp3 ✦
-    </div>
-  </div>
-</div>
-
 <!-- ════════ HISTORY (subscreen) ════════ -->
 <div class="screen subscreen" id="screen-history">
   <div class="subscreen-header">
@@ -354,24 +258,21 @@
   </div>
 </div>
 
-<!-- ════════ NAV PRINCIPALE (5 onglets) ════════ -->
+<!-- ════════ NAV PRINCIPALE (2 onglets) ════════ -->
 <nav class="nav-tabs" id="nav-main">
-  <button class="nav-tab active" id="tab-home" onclick="switchTab('home')">
+  <button class="nav-tab active" id="tab-home" onclick="switchTab('home', 0)">
     <span class="tab-icon">✦</span><span>Signaux</span>
   </button>
-  <button class="nav-tab" id="tab-mood" onclick="switchTab('mood')">
-    <span class="tab-icon">🌸</span><span>Humeur</span>
-  </button>
-  <button class="nav-tab" id="tab-capsule" onclick="switchTab('capsule')">
-    <span class="tab-icon">🔒</span><span>Capsules</span>
-  </button>
-  <button class="nav-tab" id="tab-map" onclick="switchTab('map')">
-    <span class="tab-icon">🗺️</span><span>Carte</span>
-  </button>
-  <button class="nav-tab" id="tab-more" onclick="switchTab('more')">
+  <button class="nav-tab" id="tab-more" onclick="switchTab('more', 1)">
     <span class="tab-icon">••</span><span>Plus</span>
   </button>
 </nav>
+
+<!-- Swipe indicator dots -->
+<div class="swipe-dots" id="swipe-dots">
+  <div class="swipe-dot active" onclick="switchTab('home',0)"></div>
+  <div class="swipe-dot" onclick="switchTab('more',1)"></div>
+</div>
 
 <audio id="music" loop><source src="lo-fi.mp3" type="audio/mp3"></audio>
 
