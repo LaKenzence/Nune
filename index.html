@@ -161,6 +161,22 @@
         </div>
         <span class="more-nav-arrow">›</span>
       </button>
+      <button class="more-nav-card" onclick="pushScreen('playlist')">
+        <span class="more-nav-icon">🎵</span>
+        <div class="more-nav-body">
+          <div class="more-nav-title">Notre Playlist</div>
+          <div class="more-nav-sub">des sons qui te font penser à nous</div>
+        </div>
+        <span class="more-nav-arrow">›</span>
+      </button>
+      <button class="more-nav-card" onclick="pushScreen('themes')">
+        <span class="more-nav-icon">🎨</span>
+        <div class="more-nav-body">
+          <div class="more-nav-title">Thèmes visuels</div>
+          <div class="more-nav-sub">change l'ambiance de l'app</div>
+        </div>
+        <span class="more-nav-arrow">›</span>
+      </button>
     </div>
 
     <!-- Citation du jour -->
@@ -272,6 +288,32 @@
 <div class="swipe-dots" id="swipe-dots">
   <div class="swipe-dot active" onclick="switchTab('home',0)"></div>
   <div class="swipe-dot" onclick="switchTab('more',1)"></div>
+</div>
+
+<!-- ════════ PLAYLIST (subscreen) ════════ -->
+<div class="screen subscreen" id="screen-playlist">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="goBack()">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Notre Playlist</div>
+      <div class="subscreen-sub">pour toi, en boucle</div>
+    </div>
+  </div>
+  <div id="playlist-section" style="width:100%;max-width:380px;padding:0 20px;margin-top:16px"></div>
+</div>
+
+<!-- ════════ THEMES (subscreen) ════════ -->
+<div class="screen subscreen" id="screen-themes">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="goBack()">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Thèmes visuels</div>
+      <div class="subscreen-sub">change l'ambiance</div>
+    </div>
+  </div>
+  <div style="width:100%;max-width:380px;padding:16px 20px 0">
+    <div id="theme-picker" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
 </div>
 
 <audio id="music" loop><source src="lo-fi.mp3" type="audio/mp3"></audio>
