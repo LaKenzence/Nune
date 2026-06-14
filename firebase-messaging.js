@@ -3,8 +3,7 @@
    À placer à la RACINE du projet (même niveau que index.html)
    ══════════════════════════════════════════ */
 
-importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js");
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 
 /* 🔧 Même config que firebase-messaging.js */
 firebase.initializeApp({
