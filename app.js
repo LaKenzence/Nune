@@ -1,9 +1,12 @@
 /* ══════════════════════════════════════════
    app.js — Twenty Three · Signaux pour Nune
+   v2 — IndexedDB photos · UX fixes · A11y · Animations
    ══════════════════════════════════════════ */
 
 /* ── STATE ── */
 let count = parseInt(localStorage.getItem('signal-count') || '0');
+// Tracks whether we're past the first cycle (signal 23 already reached once)
+let firstCycleDone = localStorage.getItem('first-cycle-done') === '1';
 let musicPlaying = false;
 let secretModeCount = 0;
 let typingInterval = null;
@@ -11,6 +14,88 @@ let currentAmbiance = null;
 let ambianceAudio = null;
 let currentCitationIdx = 0;
 const CIRCUMFERENCE = 2 * Math.PI * 22;
+
+/* ════════════════════════════════════════
+   INDEXEDDB — PHOTO STORAGE
+   Replaces localStorage base64 for images
+════════════════════════════════════════ */
+const DB_NAME = 'twenty-three-db';
+const DB_VERSION = 1;
+const STORE_NAME = 'photos';
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    if (db) { resolve(db); return; }
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const database = e.target.result;
+      if (!database.objectStoreNames.contains(STORE_NAME)) {
+        const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        store.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbGetAllPhotos() {
+  const database = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbAddPhoto(photo) {
+  const database = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.add(photo);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbDeletePhoto(id) {
+  const database = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/* Migration one-time : localStorage → IndexedDB */
+async function migratePhotosFromLocalStorage() {
+  const migrated = localStorage.getItem('photos-migrated');
+  if (migrated) return;
+  try {
+    const old = JSON.parse(localStorage.getItem('gallery-photos') || '[]');
+    if (old.length > 0) {
+      for (const p of old) {
+        await dbAddPhoto({
+          id: p.id,
+          src: p.src,
+          caption: p.caption || '',
+          createdAt: p.id
+        });
+      }
+      localStorage.removeItem('gallery-photos');
+      showToast('Photos migrées vers le stockage local ✦');
+    }
+    localStorage.setItem('photos-migrated', '1');
+  } catch (e) {
+    console.warn('Migration photos échouée :', e);
+  }
+}
 
 /* ════════════════════════════════════════
    SWIPE NAVIGATION SYSTEM
@@ -21,12 +106,12 @@ let swipeStartX = 0;
 let swipeStartY = 0;
 let swipeDeltaX = 0;
 let isSwiping = false;
-let swipeBlocked = false; // blocked when subscreen is open
+let swipeBlocked = false;
 
 const wrapper = () => document.getElementById('swipe-wrapper');
 
 function getSwipeOffset() {
-  return -currentTabIndex * 100; // vw
+  return -currentTabIndex * 100;
 }
 
 function applySwipeOffset(extraPx = 0) {
@@ -37,7 +122,6 @@ function applySwipeOffset(extraPx = 0) {
 }
 
 function switchTab(name, idx) {
-  // If a subscreen is open, don't switch
   if (document.querySelector('.screen.subscreen.slide-in')) return;
 
   currentTabIndex = idx;
@@ -46,24 +130,25 @@ function switchTab(name, idx) {
   w.classList.remove('swiping');
   w.style.transform = `translateX(${getSwipeOffset()}vw)`;
 
-  // Update nav active state
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   const tabEl = document.getElementById('tab-' + name);
-  if (tabEl) tabEl.classList.add('active');
-
-  // Update dots
-  document.querySelectorAll('.swipe-dot').forEach((d, i) => {
-    d.classList.toggle('active', i === currentTabIndex);
+  if (tabEl) {
+    tabEl.classList.add('active');
+    tabEl.setAttribute('aria-selected', 'true');
+  }
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    if (!t.classList.contains('active')) t.setAttribute('aria-selected', 'false');
   });
 
-  // Trigger screen-specific logic
-  if (name === 'more') renderMoreScreen();
+  document.querySelectorAll('.swipe-dot').forEach((d, i) => {
+    d.classList.toggle('active', i === currentTabIndex);
+    d.setAttribute('aria-label', `Aller à ${TABS[i]}`);
+  });
 
-  // Haptic
+  if (name === 'more') renderMoreScreen();
   if (navigator.vibrate) navigator.vibrate(8);
 }
 
-// Touch swipe handling
 function initSwipe() {
   const w = wrapper();
   if (!w) return;
@@ -84,7 +169,6 @@ function initSwipe() {
     const dx = e.touches[0].clientX - swipeStartX;
     const dy = e.touches[0].clientY - swipeStartY;
 
-    // If first move is more vertical than horizontal, block horizontal swipe
     if (!isSwiping && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
       swipeBlocked = true;
       return;
@@ -99,7 +183,6 @@ function initSwipe() {
 
     swipeDeltaX = dx;
 
-    // Resist at edges
     let delta = dx;
     if ((currentTabIndex === 0 && dx > 0) || (currentTabIndex === TABS.length - 1 && dx < 0)) {
       delta = dx * 0.2;
@@ -118,7 +201,6 @@ function initSwipe() {
     } else if (swipeDeltaX > threshold && currentTabIndex > 0) {
       switchTab(TABS[currentTabIndex - 1], currentTabIndex - 1);
     } else {
-      // Snap back
       applySwipeOffset(0);
       setTimeout(() => w.classList.remove('swiping'), 0);
     }
@@ -136,7 +218,6 @@ function pushScreen(name) {
   const w = wrapper();
 
   if (w) {
-    // Store current swipe offset to keep it when pushing back
     w.dataset.swipeIdx = currentTabIndex;
     w.classList.add('push-back');
     w.style.setProperty('--swipe-offset', `${getSwipeOffset()}vw`);
@@ -154,6 +235,9 @@ function pushScreen(name) {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       screenEl.classList.add('slide-in');
+      // Focus management pour accessibilité
+      const firstFocusable = screenEl.querySelector('button, [href], input, [tabindex]:not([tabindex="-1"])');
+      if (firstFocusable) setTimeout(() => firstFocusable.focus(), 350);
     });
   });
 
@@ -191,14 +275,12 @@ function goBack() {
   if (navigator.vibrate) navigator.vibrate(8);
 }
 
-// Hardware back button (Android)
 window.addEventListener('popstate', () => {
   if (navigationStack.length > 0) {
     goBack();
   }
 });
 
-// Push dummy state so we can intercept the back button
 function pushHistoryState() {
   history.pushState({ app: '23signals' }, '');
 }
@@ -237,6 +319,7 @@ const signals = [
   { emoji: "🫀", text: "Ce battement-là, c'est à cause de toi.", mood: "amour" },
 ];
 
+/* Les signaux personnels ne se déclenchent qu'au premier cycle */
 const personalSignals = {
   3:  { emoji: "🌙", text: "Tu te souviens du soir où on a regardé le ciel ensemble ?\nMoi oui. Tout le temps.", mood: "souvenir" },
   7:  { emoji: "💌", text: "Ce moment précis où j'ai su.\nTu portais ce sourire-là.", mood: "révélation" },
@@ -376,10 +459,15 @@ function renderThemePicker() {
   const el = document.getElementById('theme-picker');
   if (!el) return;
   el.innerHTML = Object.entries(THEMES).map(([id, t]) => `
-    <button class="theme-btn ${currentTheme === id ? 'active' : ''}" onclick="applyTheme('${id}')">
-      <span class="theme-icon">${t.icon}</span>
+    <button
+      class="theme-btn ${currentTheme === id ? 'active' : ''}"
+      onclick="applyTheme('${id}')"
+      aria-pressed="${currentTheme === id}"
+      aria-label="Thème ${t.name}${currentTheme === id ? ', actif' : ''}"
+    >
+      <span class="theme-icon" aria-hidden="true">${t.icon}</span>
       <span class="theme-name">${t.name}</span>
-      ${currentTheme === id ? '<span class="theme-check">✓</span>' : ''}
+      ${currentTheme === id ? '<span class="theme-check" aria-hidden="true">✓</span>' : ''}
     </button>
   `).join('');
 }
@@ -387,17 +475,11 @@ function renderThemePicker() {
 /* ════════════════════════════════════════
    SPOTIFY PLAYLIST
 ════════════════════════════════════════ */
-// ↓ Remplace ces deux URLs par celles de ta playlist
 const PLAYLIST_EMBED = "https://open.spotify.com/embed/playlist/6SPrATTTNJhJHgomlgqRFN?utm_source=generator&theme=0";
 const PLAYLIST_URL   = "https://open.spotify.com/playlist/6SPrATTTNJhJHgomlgqRFN?si=Y-N_e1VlRK2xtCGc_UsPwg&pi=D7O2C2NzTsGlP";
 const PLAYLIST_NAME  = "Notre playlist ✦";
 const PLAYLIST_DESC  = "Des sons qui me font penser à toi";
 
-/* ════════════════════════════════════════
-   SURPRISE PHOTO (signal 23)
-   → Place ta photo dans le même dossier que index.html
-     et mets son nom de fichier ici
-════════════════════════════════════════ */
 const SURPRISE_PHOTO_SRC = "1000020019.jpg";
 
 /* ════════════════════════════════════════
@@ -442,11 +524,19 @@ function renderOnboardingStep(idx) {
   const container = document.getElementById('onboarding-steps');
 
   container.innerHTML = `
-    <div class="onboarding-step active">
-      <div class="onboarding-visual">${step.visual}</div>
+    <div class="onboarding-step active" role="region" aria-label="Étape ${idx + 1} sur ${ONBOARDING_STEPS.length}">
+      <div class="onboarding-visual" aria-hidden="true">${step.visual}</div>
       <div class="onboarding-title">${step.title.replace(/\n/g,'<br>')}</div>
       <div class="onboarding-text">${step.text.replace(/\n/g,'<br>')}</div>
-      ${step.hasInput ? `<input class="onboarding-name-input" id="onboarding-name" type="text" placeholder="ton prénom…" maxlength="20" autocomplete="off">` : ''}
+      ${step.hasInput ? `<input
+          class="onboarding-name-input"
+          id="onboarding-name"
+          type="text"
+          placeholder="ton prénom…"
+          maxlength="20"
+          autocomplete="off"
+          aria-label="Ton prénom"
+        >` : ''}
       <button class="btn-onboarding" onclick="nextOnboardingStep()">
         ${idx < ONBOARDING_STEPS.length - 1 ? 'Continuer →' : 'Commencer ✦'}
       </button>
@@ -456,6 +546,8 @@ function renderOnboardingStep(idx) {
 
   document.querySelectorAll('.onboarding-dot').forEach((d, i) => {
     d.classList.toggle('active', i === idx);
+    d.setAttribute('aria-label', `Étape ${i + 1}`);
+    d.setAttribute('aria-current', i === idx ? 'step' : 'false');
   });
 }
 
@@ -546,7 +638,14 @@ function updateRing() {
   const fill = document.getElementById('ring-fill');
   const progress = Math.min(count / 23, 1);
   fill.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
-  document.getElementById('count-display').textContent = count;
+  const display = document.getElementById('count-display');
+  display.textContent = count;
+  // Accessibilité : mettre à jour l'aria-valuenow
+  const ring = document.querySelector('.signal-ring');
+  if (ring) {
+    ring.setAttribute('aria-valuenow', count);
+    ring.setAttribute('aria-valuetext', `${count} signaux sur 23`);
+  }
 }
 
 /* ════════════════════════════════════════
@@ -564,6 +663,19 @@ function typeText(text, el, speed = 22) {
 }
 
 /* ════════════════════════════════════════
+   CARD ENTRANCE ANIMATION
+════════════════════════════════════════ */
+function animateCard() {
+  const card = document.getElementById('card');
+  if (!card) return;
+  // Supprime l'ancienne classe pour permettre le re-trigger
+  card.classList.remove('card-signal-enter');
+  // Force reflow pour relancer l'animation
+  void card.offsetWidth;
+  card.classList.add('card-signal-enter');
+}
+
+/* ════════════════════════════════════════
    TIME / DATE MESSAGES
 ════════════════════════════════════════ */
 function getTimeMessage() {
@@ -576,9 +688,17 @@ function getTimeMessage() {
 }
 
 function getDateMessage() {
-  const d = new Date(); const day = d.getDate(), month = d.getMonth() + 1;
+  const d = new Date();
+  const day = d.getDate();
+  const month = d.getMonth() + 1;
+
+  // 23 de chaque mois
   if (day === 23) return { emoji: "🎯", text: "Aujourd'hui c'est le 23. Le signal est au maximum.", mood: "mystère" };
+  // Saint-Valentin
   if (day === 14 && month === 2) return { emoji: "💝", text: "La Saint-Valentin. Tous les signaux convergent vers toi.", mood: "amour" };
+  // Voyage à Lisbonne — 12 août
+  if (day === 12 && month === 8) return { emoji: "✈️", text: "Lisbonne… Je me souviens de chaque instant de ce voyage avec toi.", mood: "souvenir" };
+
   return null;
 }
 
@@ -592,6 +712,7 @@ function spawnParticles(x, y) {
     setTimeout(() => {
       const p = document.createElement('div');
       p.className = 'particle';
+      p.setAttribute('aria-hidden', 'true');
       p.textContent = PARTICLES[Math.floor(Math.random() * PARTICLES.length)];
       p.style.left = (x + (Math.random() - 0.5) * 80) + 'px';
       p.style.top  = (y + (Math.random() - 0.5) * 40) + 'px';
@@ -607,6 +728,7 @@ function spawnConfetti(total = 60) {
     setTimeout(() => {
       const c = document.createElement('div');
       c.className = 'confetti-piece';
+      c.setAttribute('aria-hidden', 'true');
       c.style.left = Math.random() * 100 + 'vw';
       c.style.background = colors[Math.floor(Math.random() * colors.length)];
       c.style.width  = (6 + Math.random() * 8) + 'px';
@@ -630,6 +752,7 @@ function spawnRipple(e, card) {
   const y = (e?.clientY ?? rect.top + rect.height/2) - rect.top;
   const rip = document.createElement('span');
   rip.className = 'ripple';
+  rip.setAttribute('aria-hidden', 'true');
   rip.style.left = x + 'px'; rip.style.top = y + 'px';
   rip.style.width = rip.style.height = '60px';
   rip.style.marginLeft = rip.style.marginTop = '-30px';
@@ -640,6 +763,8 @@ function spawnRipple(e, card) {
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
+  t.setAttribute('role', 'status');
+  t.setAttribute('aria-live', 'polite');
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2800);
 }
@@ -654,6 +779,11 @@ function setCard(sig) {
   const tag = document.getElementById('mood-tag');
   tag.textContent = sig.mood;
   tag.classList.add('visible');
+  // Déclenche l'animation d'entrée
+  animateCard();
+  // Met à jour l'aria-label de la carte pour les lecteurs d'écran
+  const card = document.getElementById('card');
+  if (card) card.setAttribute('aria-label', `Signal : ${sig.text}. Humeur : ${sig.mood}. Appuie pour recevoir un nouveau signal.`);
 }
 
 /* ════════════════════════════════════════
@@ -675,12 +805,12 @@ function addToHistory(sig) {
 function renderHistory() {
   const list = document.getElementById('history-list');
   if (!signalHistory.length) {
-    list.innerHTML = '<div class="history-empty">Aucun signal encore reçu.<br>Commence à taper sur la carte ✦</div>';
+    list.innerHTML = '<div class="history-empty" role="status">Aucun signal encore reçu.<br>Commence à taper sur la carte ✦</div>';
     return;
   }
   list.innerHTML = signalHistory.map(s => `
     <div class="history-item">
-      <div class="history-emoji">${s.emoji}</div>
+      <div class="history-emoji" aria-hidden="true">${s.emoji}</div>
       <div class="history-body">
         <div class="history-text">${s.text}</div>
         <div class="history-meta">${s.mood} · ${s.time}</div>
@@ -692,7 +822,7 @@ function renderHistory() {
 function clearHistory() { signalHistory = []; saveHistory(); renderHistory(); showToast("Historique effacé 🌙"); }
 
 /* ════════════════════════════════════════
-   TAP
+   TAP — FIXED: personal signals only fire in first cycle
 ════════════════════════════════════════ */
 function tap(e) {
   count++;
@@ -708,7 +838,8 @@ function tap(e) {
   let sig;
   const dateMsg = getDateMessage();
 
-  if (personalSignals[count]) {
+  // Les signaux personnels ne se déclenchent QUE lors du premier cycle
+  if (!firstCycleDone && personalSignals[count]) {
     sig = personalSignals[count];
   } else if (count === 5) {
     sig = getTimeMessage();
@@ -716,7 +847,7 @@ function tap(e) {
     sig = dateMsg;
   } else if (count === 23) {
     sig = { emoji: "💌", text: "Signal 23 atteint…", mood: "révélation" };
-    // Easter egg sonore : fade-in de la musique
+    // Easter egg sonore
     const htmlAudio = document.getElementById('music');
     if (htmlAudio && htmlAudio.paused) {
       htmlAudio.volume = 0;
@@ -733,20 +864,29 @@ function tap(e) {
       document.getElementById('unlock-msg').innerHTML = msg.replace(/\n/g, '<br>');
       const photoContainer = document.getElementById('unlock-photo-container');
       const photoImg = document.getElementById('unlock-photo-img');
-      // Utilise la photo surprise dédiée en priorité, sinon la galerie
       if (SURPRISE_PHOTO_SRC) {
         photoImg.src = SURPRISE_PHOTO_SRC;
         photoContainer.classList.add('has-photo');
       } else {
-        const photos = getPhotos();
-        if (photos.length > 0) {
-          photoImg.src = photos[Math.floor(Math.random() * photos.length)].src;
-          photoContainer.classList.add('has-photo');
-        } else {
-          photoContainer.classList.remove('has-photo');
-        }
+        dbGetAllPhotos().then(photos => {
+          if (photos.length > 0) {
+            photoImg.src = photos[Math.floor(Math.random() * photos.length)].src;
+            photoContainer.classList.add('has-photo');
+          } else {
+            photoContainer.classList.remove('has-photo');
+          }
+        });
       }
-      document.getElementById('unlock-screen').classList.add('active');
+      const unlockScreen = document.getElementById('unlock-screen');
+      unlockScreen.classList.add('active');
+      unlockScreen.setAttribute('aria-modal', 'true');
+      unlockScreen.setAttribute('role', 'dialog');
+      unlockScreen.setAttribute('aria-label', 'Signal 23 débloqué');
+      // Focus le bouton fermer pour accessibilité
+      setTimeout(() => {
+        const closeBtn = unlockScreen.querySelector('.unlock-close');
+        if (closeBtn) closeBtn.focus();
+      }, 900);
       vibrate([50, 30, 50, 30, 100]);
       spawnConfetti(80);
     }, 800);
@@ -757,7 +897,8 @@ function tap(e) {
 
   if (sig) { setCard(sig); addToHistory(sig); }
 
-  if (!personalSignals[count]) {
+  // Toasts de progression (uniquement hors signaux personnels actifs)
+  if (!firstCycleDone) {
     if (count === 7)  showToast("7 signaux… tu es dans le rythme ✨");
     if (count === 11) showToast("Onze. Un nombre oublié, mais pas ce soir.");
     if (count === 17) showToast("17 signaux. Le 23 approche…");
@@ -766,10 +907,16 @@ function tap(e) {
 
 function closeUnlock() {
   document.getElementById('unlock-screen').classList.remove('active');
+  // Marque le premier cycle comme terminé
+  firstCycleDone = true;
+  localStorage.setItem('first-cycle-done', '1');
   count = 0;
   localStorage.setItem('signal-count', '0');
   updateRing();
   showToast("Le cycle recommence… 🌙");
+  // Rend le focus à la carte
+  const card = document.getElementById('card');
+  if (card) card.focus();
 }
 
 /* ════════════════════════════════════════
@@ -796,8 +943,13 @@ function renderAmbiancePanel() {
   const el = document.getElementById('ambiance-grid');
   if (!el) return;
   el.innerHTML = ambiances.map(a => `
-    <button class="ambiance-btn ${currentAmbiance === a.id ? 'playing' : ''}" onclick="playAmbiance('${a.id}')">
-      <div class="ambiance-icon">${a.icon}</div>
+    <button
+      class="ambiance-btn ${currentAmbiance === a.id ? 'playing' : ''}"
+      onclick="playAmbiance('${a.id}')"
+      aria-pressed="${currentAmbiance === a.id}"
+      aria-label="${a.name}${currentAmbiance === a.id ? ', en cours de lecture' : ''}"
+    >
+      <div class="ambiance-icon" aria-hidden="true">${a.icon}</div>
       <div class="ambiance-name">${a.name}</div>
       <div class="ambiance-sub">${currentAmbiance === a.id ? '▶ en cours' : a.sub}</div>
     </button>
@@ -852,8 +1004,11 @@ function toggleMusic() {
 function updateMusicBars(playing) {
   const bars = document.getElementById('music-bars');
   const icon = document.getElementById('music-icon');
+  const btn = document.querySelector('.btn-music-row');
   if (bars) { if (playing) bars.classList.add('playing'); else bars.classList.remove('playing'); }
   if (icon) icon.textContent = playing ? '⏸' : '🎵';
+  if (btn) btn.setAttribute('aria-label', playing ? 'Mettre la musique en pause' : 'Lancer la musique');
+  if (btn) btn.setAttribute('aria-pressed', playing);
 }
 
 /* ════════════════════════════════════════
@@ -889,12 +1044,12 @@ function renderPlaylist() {
   el.innerHTML = `
     <div class="playlist-card">
       <div class="playlist-header">
-        <span class="playlist-icon">🎵</span>
+        <span class="playlist-icon" aria-hidden="true">🎵</span>
         <div class="playlist-info">
           <div class="playlist-name">${PLAYLIST_NAME}</div>
           <div class="playlist-desc">${PLAYLIST_DESC}</div>
         </div>
-        <a class="playlist-open" href="${PLAYLIST_URL}" target="_blank" rel="noopener">Ouvrir ↗</a>
+        <a class="playlist-open" href="${PLAYLIST_URL}" target="_blank" rel="noopener" aria-label="Ouvrir la playlist sur Spotify">Ouvrir ↗</a>
       </div>
       <iframe
         class="playlist-embed"
@@ -903,6 +1058,7 @@ function renderPlaylist() {
         allowtransparency="true"
         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
         loading="lazy"
+        title="Notre playlist Spotify"
       ></iframe>
     </div>
   `;
@@ -999,6 +1155,8 @@ function checkTodayDates() {
   const bannerText = document.getElementById('birthday-banner-text');
   bannerText.textContent = `✦ Aujourd'hui c'est ${match.name} ✦`;
   banner.classList.add('show');
+  banner.setAttribute('role', 'alert');
+  banner.setAttribute('aria-live', 'assertive');
   spawnConfetti(70);
   vibrate([50, 30, 50, 30, 100, 30, 100]);
   showToast(`${match.name} — c'est aujourd'hui ! 🎉`);
@@ -1010,7 +1168,7 @@ function renderCountdowns() {
   const list = getCountdowns();
   const el = document.getElementById('countdown-list');
   if (!list.length) {
-    el.innerHTML = '<div style="text-align:center;opacity:0.35;font-style:italic;font-size:14px;padding:30px 0">Aucune date encore…<br>Ajoute un moment important ✦</div>';
+    el.innerHTML = '<div style="text-align:center;opacity:0.35;font-style:italic;font-size:14px;padding:30px 0" role="status">Aucune date encore…<br>Ajoute un moment important ✦</div>';
     return;
   }
   const today = new Date();
@@ -1020,22 +1178,22 @@ function renderCountdowns() {
     const parts = c.date?.split('-') || [];
     const isToday = parts.length === 3 && `${parts[1]}-${parts[2]}` === todayMD;
     if (!tl) {
-      return `<div class="countdown-card">
+      return `<div class="countdown-card" role="article" aria-label="${c.name}">
         <div class="countdown-card-top"><div class="countdown-name">${c.name}</div>
-        <button class="countdown-delete" onclick="deleteCountdown(${c.id})">✕</button></div>
-        ${isToday ? `<div class="countdown-celebrate">🎉 C'est aujourd'hui ! 🎉</div>` : `<div class="countdown-past">Ce moment est passé ✨</div>`}
+        <button class="countdown-delete" onclick="deleteCountdown(${c.id})" aria-label="Supprimer ${c.name}">✕</button></div>
+        ${isToday ? `<div class="countdown-celebrate" role="status">🎉 C'est aujourd'hui ! 🎉</div>` : `<div class="countdown-past">Ce moment est passé ✨</div>`}
       </div>`;
     }
-    return `<div class="countdown-card" data-id="${c.id}">
+    return `<div class="countdown-card" data-id="${c.id}" role="article" aria-label="${c.name} : ${tl.days} jours">
       <div class="countdown-card-top"><div class="countdown-name">${c.name}</div>
-      <button class="countdown-delete" onclick="deleteCountdown(${c.id})">✕</button></div>
-      <div class="countdown-units">
+      <button class="countdown-delete" onclick="deleteCountdown(${c.id})" aria-label="Supprimer ${c.name}">✕</button></div>
+      <div class="countdown-units" aria-hidden="true">
         <div class="cd-unit"><div class="cd-num" id="cd-d-${c.id}">${tl.days}</div><div class="cd-label">jours</div></div>
         <div class="cd-unit"><div class="cd-num" id="cd-h-${c.id}">${String(tl.hours).padStart(2,'0')}</div><div class="cd-label">heures</div></div>
         <div class="cd-unit"><div class="cd-num" id="cd-m-${c.id}">${String(tl.mins).padStart(2,'0')}</div><div class="cd-label">min</div></div>
         <div class="cd-unit"><div class="cd-num" id="cd-s-${c.id}">${String(tl.secs).padStart(2,'0')}</div><div class="cd-label">sec</div></div>
       </div>
-      ${tl.days === 0 ? `<div class="countdown-celebrate">🎉 C'est aujourd'hui !</div>` : ''}
+      ${tl.days === 0 ? `<div class="countdown-celebrate" role="status">🎉 C'est aujourd'hui !</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -1056,54 +1214,115 @@ setInterval(() => {
 }, 1000);
 
 /* ════════════════════════════════════════
-   GALLERY
+   GALLERY — IndexedDB version
 ════════════════════════════════════════ */
-function getPhotos() { try { return JSON.parse(localStorage.getItem('gallery-photos') || '[]'); } catch { return []; } }
-function savePhotos(list) { localStorage.setItem('gallery-photos', JSON.stringify(list)); }
-
-function handlePhotoUpload(event) {
+async function handlePhotoUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const caption = document.getElementById('photo-caption').value.trim() || '';
-    const photos = getPhotos();
-    photos.push({ id: Date.now(), src: e.target.result, caption });
-    savePhotos(photos);
-    document.getElementById('photo-caption').value = '';
+
+  // Vérification taille (max 4MB pour laisser de la marge)
+  if (file.size > 4 * 1024 * 1024) {
+    showToast("Photo trop lourde (max 4 Mo) 🙁");
     event.target.value = '';
-    renderGallery();
-    showToast("Photo ajoutée 🌸");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const caption = document.getElementById('photo-caption')?.value.trim() || '';
+    const photo = {
+      id: Date.now(),
+      src: e.target.result,
+      caption,
+      createdAt: Date.now()
+    };
+    try {
+      await dbAddPhoto(photo);
+      if (document.getElementById('photo-caption')) document.getElementById('photo-caption').value = '';
+      event.target.value = '';
+      renderGallery();
+      showToast("Photo ajoutée 🌸");
+    } catch (err) {
+      console.error('Erreur sauvegarde photo :', err);
+      showToast("Erreur lors de l'ajout 🙁");
+    }
   };
   reader.readAsDataURL(file);
 }
 
-function deletePhoto(id) { savePhotos(getPhotos().filter(p => p.id !== id)); renderGallery(); }
+async function deletePhoto(id) {
+  try {
+    await dbDeletePhoto(id);
+    renderGallery();
+    showToast("Photo supprimée 🌙");
+  } catch (err) {
+    console.error('Erreur suppression photo :', err);
+  }
+}
 
 function openLightbox(src, caption) {
+  const lb = document.getElementById('lightbox');
   document.getElementById('lightbox-img').src = src;
   document.getElementById('lightbox-caption').textContent = caption || '';
-  document.getElementById('lightbox').classList.add('open');
+  lb.classList.add('open');
+  lb.setAttribute('role', 'dialog');
+  lb.setAttribute('aria-modal', 'true');
+  lb.setAttribute('aria-label', caption ? `Photo : ${caption}` : 'Photo agrandie');
+  // Focus le bouton fermer
+  setTimeout(() => {
+    const closeBtn = document.getElementById('lightbox-close');
+    if (closeBtn) closeBtn.focus();
+  }, 50);
 }
-function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
 
-function renderGallery() {
-  const photos = getPhotos();
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+async function renderGallery() {
   const grid = document.getElementById('gallery-grid');
-  let html = '';
-  if (!photos.length) {
-    html += '<div class="gallery-empty">Aucune photo encore…<br>Ajoute vos souvenirs ici ✦</div>';
-  } else {
-    html += photos.map(p => `
-      <div class="gallery-item" onclick="openLightbox('${p.src.replace(/'/g,"\\'")}', '${(p.caption||'').replace(/'/g,"\\'")}')">
-        <img src="${p.src}" alt="${p.caption || ''}">
-        <div class="gallery-caption">${p.caption || ''}</div>
-        <button class="gallery-delete" onclick="event.stopPropagation();deletePhoto(${p.id})">✕</button>
-      </div>
-    `).join('');
+  if (!grid) return;
+
+  grid.innerHTML = '<div class="gallery-loading" aria-live="polite">Chargement…</div>';
+
+  try {
+    const photos = await dbGetAllPhotos();
+    let html = '';
+
+    if (!photos.length) {
+      html += '<div class="gallery-empty" role="status">Aucune photo encore…<br>Ajoute vos souvenirs ici ✦</div>';
+    } else {
+      html += photos.map(p => {
+        const safeSrc = p.src.replace(/'/g, "\\'");
+        const safeCaption = (p.caption || '').replace(/'/g, "\\'");
+        return `
+          <div class="gallery-item" role="img" aria-label="${p.caption || 'Photo souvenir'}">
+            <img
+              src="${p.src}"
+              alt="${p.caption || 'Photo souvenir'}"
+              loading="lazy"
+              onclick="openLightbox('${safeSrc}', '${safeCaption}')"
+            >
+            <div class="gallery-caption">${p.caption || ''}</div>
+            <button
+              class="gallery-delete"
+              onclick="event.stopPropagation();deletePhoto(${p.id})"
+              aria-label="Supprimer cette photo${p.caption ? ' : ' + p.caption : ''}"
+            >✕</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    if (count < 23) {
+      html += `<div class="surprise-lock" aria-label="Photo surprise verrouillée jusqu'au signal 23"><span aria-hidden="true">🔒</span> Photo surprise au signal 23</div>`;
+    }
+
+    grid.innerHTML = html;
+  } catch (err) {
+    console.error('Erreur chargement galerie :', err);
+    grid.innerHTML = '<div class="gallery-empty" role="alert">Erreur de chargement 🙁</div>';
   }
-  if (count < 23) html += `<div class="surprise-lock"><span>🔒</span> Photo surprise au signal 23</div>`;
-  grid.innerHTML = html;
 }
 
 /* ════════════════════════════════════════
@@ -1154,7 +1373,11 @@ function initDailyBadge() {
   const badge = document.getElementById('daily-badge');
   document.getElementById('daily-badge-text').textContent = 'Signal du jour : ' + sig.mood;
   badge.classList.add('show');
+  badge.setAttribute('role', 'button');
+  badge.setAttribute('aria-label', `Signal du jour : ${sig.mood}. Appuie pour l'afficher.`);
+  badge.setAttribute('tabindex', '0');
   badge.onclick = () => { setCard(sig); addToHistory(sig); showToast("Signal du jour ✦"); vibrate([20]); };
+  badge.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') badge.onclick(); };
 }
 
 function checkNotifBanner() {
@@ -1171,20 +1394,55 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 /* ════════════════════════════════════════
    INIT
 ════════════════════════════════════════ */
-// Apply saved theme on boot
 applyTheme(currentTheme);
 
-// Pre-seed Nune's birthday (23 août) if not already added
-(function seedBirthday() {
+/* Seed des dates importantes */
+(function seedDates() {
   const list = JSON.parse(localStorage.getItem('countdowns') || '[]');
-  const already = list.some(c => c.date && c.date.endsWith('-08-23') && c.name.toLowerCase().includes('nune'));
-  if (!already) {
-    const year = new Date().getFullYear();
-    const target = new Date(`${year}-08-23`);
-    const useYear = target < new Date() ? year + 1 : year;
-    list.unshift({ id: Date.now(), name: "Anniversaire de Nune 🎂", date: `${useYear}-08-23` });
-    localStorage.setItem('countdowns', JSON.stringify(list));
+  const year = new Date().getFullYear();
+  const nextYear = year + 1;
+
+  function getCorrectYear(month, day) {
+    const target = new Date(`${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`);
+    return target < new Date() ? nextYear : year;
   }
+
+  const toSeed = [
+    {
+      key: 'nune-birthday',
+      name: "Anniversaire de Nune 🎂",
+      month: 8, day: 23
+    },
+    {
+      key: 'kenzo-birthday',
+      name: "Anniversaire de Kenzo 🎂",
+      month: 7, day: 20
+    },
+    {
+      key: 'lisbon-trip',
+      name: "Notre voyage à Lisbonne ✈️",
+      month: 8, day: 12
+    }
+  ];
+
+  toSeed.forEach(({ key, name, month, day }) => {
+    const storageKey = `seed-${key}`;
+    const useYear = getCorrectYear(month, day);
+    const dateStr = `${useYear}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+
+    // Ne re-seed que si la date n'existe pas encore ou si l'année a changé
+    const existing = list.findIndex(c => c.name === name);
+    if (existing !== -1) {
+      // Mise à jour de l'année si besoin
+      if (list[existing].date !== dateStr) {
+        list[existing].date = dateStr;
+      }
+    } else {
+      list.unshift({ id: Date.now() + Math.random(), name, date: dateStr });
+    }
+  });
+
+  localStorage.setItem('countdowns', JSON.stringify(list));
 })();
 
 updateRing();
@@ -1197,10 +1455,10 @@ if (localStorage.getItem('notif-granted') && Notification.permission === 'grante
   scheduleNotifications();
 }
 
-// Init swipe system
 initSwipe();
-
-// Push initial history state for back button support
 pushHistoryState();
+
+// Migration photos localStorage → IndexedDB au démarrage
+openDB().then(() => migratePhotosFromLocalStorage());
 
 setTimeout(checkOnboarding, 300);
