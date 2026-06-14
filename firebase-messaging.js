@@ -30,7 +30,7 @@ const VAPID_KEY = "BGLQD9cyqPQNfUJpaSZ0uZcu1czgO1cx4cic0cAD8WzoyjvluYvB7ebKdNM5I
 /* ─────────────────────────────────────────
    INIT
 ───────────────────────────────────────── */
-const firebaseApp = initializeApp(FIREBASE_CONFIG);
+const firebaseApp = initializeApp(firebaseConfig);
 const db          = getFirestore(firebaseApp);
 const messaging   = getMessaging(firebaseApp);
 
