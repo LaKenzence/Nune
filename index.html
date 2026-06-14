@@ -26,6 +26,34 @@
   </div>
 </div>
 
+<!-- ════════ IDENTITÉ ════════ -->
+<div id="identity-overlay">
+  <div class="identity-card">
+    <div class="identity-emoji">💌</div>
+    <div class="identity-title">Tu es…</div>
+    <div class="identity-subtitle">Pour que tes messages arrivent au bon endroit</div>
+    <div class="identity-buttons">
+      <button
+        class="identity-btn identity-btn--kenzo"
+        onclick="chooseIdentity('kenzo')"
+        aria-label="Je suis Kenzo"
+      >
+        <span class="identity-btn-emoji">✦</span>
+        <span>Kenzo</span>
+      </button>
+      <button
+        class="identity-btn identity-btn--nune"
+        onclick="chooseIdentity('nune')"
+        aria-label="Je suis Nune"
+      >
+        <span class="identity-btn-emoji">🌙</span>
+        <span>Nune</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+  
 <!-- Birthday Banner -->
 <div class="birthday-banner" id="birthday-banner">
   <div class="birthday-banner-text" id="birthday-banner-text"></div>
@@ -102,9 +130,20 @@
 
       <div class="mood-tag" id="mood-tag"></div>
 
+      <div class="chat-wrapper" id="chat-wrapper" aria-label="Messagerie" role="region">
+        <div class="chat-messages" id="chat-messages" aria-live="polite" aria-label="Messages"></div>
+      </div>
+      
       <div class="input-row">
-        <input id="input" type="text" placeholder="dis quelque chose…" onkeydown="if(event.key==='Enter')send()"/>
-        <button class="btn-send" onclick="send()">→</button>
+        <input
+          id="input"
+          type="text"
+          placeholder="Envoie un message…"
+          aria-label="Écrire un message"
+          onkeydown="if(event.key==='Enter')send()"
+          autocomplete="off"
+        />
+        <button class="btn-send" onclick="send()" aria-label="Envoyer le message">→</button>
       </div>
 
       <div class="actions">
@@ -327,6 +366,8 @@
   </defs>
 </svg>
 
+<script type="module" src="firebase-messaging.js"></script>
 <script src="app.js"></script>
+<script src="messaging-patch.js"></script>
 </body>
 </html>
