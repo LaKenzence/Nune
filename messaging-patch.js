@@ -5,7 +5,7 @@ const USERS = {
   kenzo: { name: "Kenzo", emoji: "✦", color: "#f06292" },
   nune:  { name: "Nune",  emoji: "🌙", color: "#ce93d8" },
 };
-
+console.log('patch chargé, _fb =', window._fb);
 function getCurrentUser() {
   return localStorage.getItem('chat-identity') || null;
 }
