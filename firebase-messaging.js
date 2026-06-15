@@ -6,6 +6,7 @@ import { initializeApp }
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+console.log('Firebase prêt, _fb exposé');
 /* 🔧 Ta config Firebase */
 const firebaseConfig = {
   apiKey:            "AIzaSyB8DdHNzhb7GtLAn4q4-qVoxQozOxxwLv8",
