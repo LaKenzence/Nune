@@ -923,7 +923,7 @@ function closeUnlock() {
    SEND (chat)
 ════════════════════════════════════════ */
 function send() {
-  const val = document.getElementById('input').value.trim().toLowerCase();
+  /*const val = document.getElementById('input').value.trim().toLowerCase();
   if (!val) return;
   vibrate([15]);
   let match = null;
@@ -933,7 +933,7 @@ function send() {
   if (!match) match = { emoji: "🌙", text: "Je reçois ton signal… il voyage.", mood: "écoute" };
   setCard(match);
   addToHistory(match);
-  document.getElementById('input').value = "";
+  document.getElementById('input').value = "";*/
 }
 
 /* ════════════════════════════════════════
