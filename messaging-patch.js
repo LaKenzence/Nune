@@ -112,33 +112,25 @@ function subscribeToMessages() {
 /* ── Notification via Service Worker (sans serveur) ── */
 function notifyNewMessage(data) {
   const user  = USERS[data.from] || { name: data.from, emoji: "💌" };
-  const title = `${user.emoji} ${user.name}`;
+  const title = `${user.emoji} ${user.name} t'a écrit 💌`;
   const body  = data.text.length > 80 ? data.text.slice(0, 80) + '…' : data.text;
 
   vibrate([30, 20, 30]);
 
-  // App en foreground → toast suffit
-  if (document.visibilityState === 'visible') {
-    showToast(`${title} : ${body}`);
-    return;
+  // Toujours envoyer via SW (fonctionne en foreground ET background)
+  if (swRegistration && Notification.permission === 'granted') {
+    swRegistration.active?.postMessage({
+      type: 'SHOW_NOTIFICATION',
+      title,
+      body,
+    });
   }
 
-  // App en background → notification système
-  if (Notification.permission !== 'granted') return;
-
-  if (swRegistration) {
-    swRegistration.showNotification(`${title} t'a écrit 💌`, {
-      body,
-      icon: '/logo.svg',
-      badge: '/logo.svg',
-      tag: 'twenty-three-msg',
-      renotify: true,
-    });
-  } else {
-    new Notification(`${title} t'a écrit 💌`, { body, icon: '/logo.svg' });
+  // Toast en plus si l'app est visible
+  if (document.visibilityState === 'visible') {
+    showToast(`${user.emoji} ${user.name} : ${body}`);
   }
 }
-
 /* ════════════════════════════════════════
    ENVOI D'UN MESSAGE
 ════════════════════════════════════════ */
