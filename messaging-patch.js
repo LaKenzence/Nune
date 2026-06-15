@@ -148,6 +148,8 @@ async function sendChatMessage() {
   const text  = input?.value.trim();
   if (!text) return;
 
+  console.log('envoi message...', { me, text, fb: window._fb });
+   
   input.value = "";
   vibrate([15]);
 
