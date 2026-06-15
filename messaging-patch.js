@@ -1,11 +1,16 @@
 /* ════════════════════════════════════════
-   IDENTITÉ UTILISATEUR
+   messaging-patch.js
+   Messagerie temps réel via Firestore
+   + notifications via Service Worker
 ════════════════════════════════════════ */
+
 const USERS = {
-  kenzo: { name: "Kenzo", emoji: "✦", color: "#f06292" },
+  kenzo: { name: "Kenzo", emoji: "✦",  color: "#f06292" },
   nune:  { name: "Nune",  emoji: "🌙", color: "#ce93d8" },
 };
+
 console.log('patch chargé, _fb =', window._fb);
+
 function getCurrentUser() {
   return localStorage.getItem('chat-identity') || null;
 }
@@ -40,11 +45,9 @@ function chooseIdentity(userId) {
 
 /* ════════════════════════════════════════
    MESSAGING
-   Firestore pour les messages (temps réel)
-   Service Worker pour les notifications
 ════════════════════════════════════════ */
 let unsubscribeMessages = null;
-let swRegistration = null;
+let swRegistration      = null;
 
 async function initMessaging() {
   if (!window._fb) {
@@ -55,9 +58,14 @@ async function initMessaging() {
   const me = getCurrentUser();
   if (!me) return;
 
+  // Récupère le SW et lui envoie l'identité pour qu'il écoute en background
   if ('serviceWorker' in navigator) {
     try {
       swRegistration = await navigator.serviceWorker.ready;
+      // Envoyer l'identité au SW → il démarre l'écoute Firestore de son côté
+      if (swRegistration.active) {
+        swRegistration.active.postMessage({ type: 'INIT_IDENTITY', identity: me });
+      }
     } catch (e) {
       console.warn('SW non disponible :', e);
     }
@@ -72,11 +80,20 @@ async function requestNotificationPermission() {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'default') {
     const perm = await Notification.requestPermission();
-    if (perm === 'granted') showToast("Notifications activées 💌");
+    if (perm === 'granted') {
+      showToast("Notifications activées 💌");
+      // Re-envoyer l'identité au SW maintenant qu'on a la permission
+      if (swRegistration?.active) {
+        swRegistration.active.postMessage({
+          type: 'INIT_IDENTITY',
+          identity: getCurrentUser()
+        });
+      }
+    }
   }
 }
 
-/* ── Écoute Firestore en temps réel ── */
+/* ── Écoute Firestore (app au premier plan) ── */
 function subscribeToMessages() {
   if (!window._fb) return;
   const { db, collection, onSnapshot, query, orderBy } = window._fb;
@@ -86,11 +103,12 @@ function subscribeToMessages() {
   const q = query(collection(db, "messages"), orderBy("createdAt", "asc"));
 
   let isFirstLoad = true;
-  const seenIds = new Set();
+  const seenIds   = new Set();
 
   unsubscribeMessages = onSnapshot(q, (snapshot) => {
     snapshot.docChanges().forEach((change) => {
       if (change.type !== "added") return;
+
       const msgId = change.doc.id;
       const data  = change.doc.data();
 
@@ -106,31 +124,40 @@ function subscribeToMessages() {
 
     isFirstLoad = false;
     scrollChatToBottom();
+
   }, (err) => console.error('Firestore error :', err));
 }
 
-/* ── Notification via Service Worker (sans serveur) ── */
+/* ── Notification ── */
 function notifyNewMessage(data) {
   const user  = USERS[data.from] || { name: data.from, emoji: "💌" };
   const title = `${user.emoji} ${user.name} t'a écrit 💌`;
-  const body  = data.text.length > 80 ? data.text.slice(0, 80) + '…' : data.text;
+  const body  = data.text
+    ? (data.text.length > 80 ? data.text.slice(0, 80) + '…' : data.text)
+    : '';
 
   vibrate([30, 20, 30]);
 
-  // Toujours envoyer via SW (fonctionne en foreground ET background)
-  if (swRegistration && Notification.permission === 'granted') {
-    swRegistration.active?.postMessage({
-      type: 'SHOW_NOTIFICATION',
-      title,
-      body,
-    });
-  }
-
-  // Toast en plus si l'app est visible
+  // App visible → toast suffit, le SW n'affiche pas de notif système
   if (document.visibilityState === 'visible') {
     showToast(`${user.emoji} ${user.name} : ${body}`);
+    return;
+  }
+
+  // App en arrière-plan → demander au SW d'afficher la notif système
+  if (Notification.permission !== 'granted') return;
+
+  if (swRegistration?.active) {
+    swRegistration.active.postMessage({ type: 'SHOW_NOTIFICATION', title, body });
+  } else if (swRegistration) {
+    swRegistration.showNotification(title, {
+      body,
+      tag:      'twenty-three-msg',
+      renotify: true,
+    });
   }
 }
+
 /* ════════════════════════════════════════
    ENVOI D'UN MESSAGE
 ════════════════════════════════════════ */
@@ -140,8 +167,6 @@ async function sendChatMessage() {
   const text  = input?.value.trim();
   if (!text) return;
 
-  console.log('envoi message...', { me, text, fb: window._fb });
-   
   input.value = "";
   vibrate([15]);
 
@@ -150,7 +175,7 @@ async function sendChatMessage() {
   try {
     const { db, collection, addDoc, serverTimestamp } = window._fb;
     await addDoc(collection(db, "messages"), {
-      from: me,
+      from:      me,
       text,
       createdAt: serverTimestamp(),
     });
@@ -165,9 +190,9 @@ async function sendChatMessage() {
    RENDU DES MESSAGES
 ════════════════════════════════════════ */
 function renderMessage(data, msgId) {
-  const me      = getCurrentUser();
-  const isMe    = data.from === me;
-  const user    = USERS[data.from] || { name: data.from };
+  const me       = getCurrentUser();
+  const isMe     = data.from === me;
+  const user     = USERS[data.from] || { name: data.from };
   const chatList = document.getElementById('chat-messages');
   if (!chatList) return;
   if (document.querySelector(`[data-msg-id="${msgId}"]`)) return;
@@ -177,7 +202,7 @@ function renderMessage(data, msgId) {
     : '';
 
   const div = document.createElement('div');
-  div.className = `chat-msg ${isMe ? 'chat-msg--me' : 'chat-msg--them'}`;
+  div.className   = `chat-msg ${isMe ? 'chat-msg--me' : 'chat-msg--them'}`;
   div.dataset.msgId = msgId;
   div.setAttribute('role', 'article');
   div.setAttribute('aria-label', `${user.name} : ${data.text}`);
@@ -206,7 +231,10 @@ function updateInputPlaceholder() {
 }
 
 function escapeHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 /* ════════════════════════════════════════
@@ -223,16 +251,16 @@ window.send = function() {
 };
 
 /* ════════════════════════════════════════
-   INIT
+   INIT — attend que Firebase soit prêt
 ════════════════════════════════════════ */
 function waitForFirebase(callback, tries = 0) {
   if (window._fb) {
     console.log('_fb trouvé après', tries * 100, 'ms');
     callback();
-  } else if (tries < 20) {
+  } else if (tries < 30) {
     setTimeout(() => waitForFirebase(callback, tries + 1), 100);
   } else {
-    console.warn('Firebase non disponible après 2s');
+    console.warn('Firebase non disponible après 3s');
   }
 }
 
