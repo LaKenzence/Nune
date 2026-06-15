@@ -143,7 +143,7 @@
           onkeydown="if(event.key==='Enter')send()"
           autocomplete="off"
         />
-        <button class="btn-send" onclick="send()" aria-label="Envoyer le message">→</button>
+       <button class="btn-send" onclick="console.log('send=',typeof send, send); send()" aria-label="Envoyer le message">→</button>
       </div>
 
       <div class="actions">
@@ -354,11 +354,9 @@
     <div id="theme-picker" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
 </div>
-
-  <button class="btn-send" onclick="console.log('send=',typeof send, send); send()" aria-label="Envoyer le message">→</button>
-
+  
 <audio id="music" loop><source src="lo-fi.mp3" type="audio/mp3"></audio>
-
+  
 <svg width="0" height="0" style="position:absolute">
   <defs>
     <filter id="glow">
