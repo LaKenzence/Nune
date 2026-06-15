@@ -231,4 +231,16 @@ window.send = function() {
 /* ════════════════════════════════════════
    INIT
 ════════════════════════════════════════ */
-setTimeout(initIdentityPicker, 800);
+function waitForFirebase(callback, tries = 0) {
+  if (window._fb) {
+    callback();
+  } else if (tries < 20) {
+    setTimeout(() => waitForFirebase(callback, tries + 1), 100);
+  } else {
+    console.warn('Firebase non disponible après 2s');
+  }
+}
+
+waitForFirebase(() => {
+  initIdentityPicker();
+});
