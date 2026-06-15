@@ -233,6 +233,7 @@ window.send = function() {
 ════════════════════════════════════════ */
 function waitForFirebase(callback, tries = 0) {
   if (window._fb) {
+    console.log('_fb trouvé après', tries * 100, 'ms');
     callback();
   } else if (tries < 20) {
     setTimeout(() => waitForFirebase(callback, tries + 1), 100);
