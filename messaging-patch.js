@@ -30,6 +30,8 @@ function initIdentityPicker() {
     initMessaging();
     return;
   }
+  // L'identité est choisie dans l'onboarding (chooseIdentityOnboarding)
+  // Si l'onboarding est déjà passé mais pas d'identité → réafficher l'overlay legacy
   const overlay = document.getElementById('identity-overlay');
   if (overlay) overlay.classList.add('active');
 }
@@ -46,6 +48,11 @@ function chooseIdentity(userId) {
   showToast(`Bienvenue ${USERS[userId].name} ${USERS[userId].emoji}`);
   initMessaging();
 }
+
+// Appelé depuis l'onboarding (app.js)
+window._initMessagingAfterOnboarding = function() {
+  if (getCurrentUser()) initMessaging();
+};
 
 /* ════════════════════════════════════════
    RESET IDENTITÉ
@@ -278,15 +285,16 @@ async function sendSharedSignal() {
     vibrate([20, 10, 20]);
     showToast("Signal envoyé… ✦ En attente de l'autre 💫");
 
-    // Bouton feedback
     const btn = document.getElementById('shared-signal-btn');
     if (btn) {
-      btn.textContent = '💫 Signal envoyé…';
+      btn.textContent = '💫';
       btn.disabled = true;
+      btn.style.borderColor = 'rgba(240,98,146,0.5)';
       setTimeout(() => {
-        btn.textContent = '✦ Je pense à toi';
+        btn.textContent = '✦';
         btn.disabled = false;
-      }, 5 * 60 * 1000); // réactivé après 5min
+        btn.style.borderColor = '';
+      }, 5 * 60 * 1000);
     }
   } catch (err) {
     console.error('Erreur signal partagé :', err);
@@ -453,11 +461,20 @@ window.submitMood = submitMood;
    NOTIFICATIONS
 ════════════════════════════════════════ */
 function notifyNewMessage(data) {
-  const user  = USERS[data.from] || { name: data.from, emoji: "💌" };
-  const title = `${user.emoji} ${user.name} t'a écrit 💌`;
+  const user  = USERS[data.from] || { name: data.from, emoji: '💌' };
+  const me    = getCurrentUser();
+  const other = me ? USERS[me] : null;
+
+  const intros = [
+    `${user.emoji} un mot de ${user.name}`,
+    `${user.emoji} ${user.name} pense à toi`,
+    `${user.emoji} nouveau signal de ${user.name}`,
+    `${user.emoji} ${user.name} t'a écrit`,
+  ];
+  const title = intros[Math.floor(Math.random() * intros.length)];
   const body  = data.text
     ? (data.text.length > 80 ? data.text.slice(0, 80) + '…' : data.text)
-    : '';
+    : '✦';
 
   vibrate([30, 20, 30]);
 
@@ -468,14 +485,17 @@ function notifyNewMessage(data) {
 
   if (Notification.permission !== 'granted') return;
 
+  const notifOptions = {
+    body,
+    tag:      'twenty-three-msg',
+    renotify: true,
+    silent:   false,
+  };
+
   if (swRegistration?.active) {
     swRegistration.active.postMessage({ type: 'SHOW_NOTIFICATION', title, body });
   } else if (swRegistration) {
-    swRegistration.showNotification(title, {
-      body,
-      tag:      'twenty-three-msg',
-      renotify: true,
-    });
+    swRegistration.showNotification(title, notifOptions);
   }
 }
 
