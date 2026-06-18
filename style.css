@@ -1096,21 +1096,39 @@ body {
   opacity: 0.75;
   max-width: 290px;
 }
-.onboarding-name-input {
-  width: 100%;
-  max-width: 260px;
-  padding: 14px 18px;
-  border-radius: 16px;
-  border: 1px solid rgba(240,98,146,0.4);
-  background: rgba(255,255,255,0.06);
+.onboarding-identity-btns {
+  display: flex;
+  gap: 14px;
+  margin: 8px 0 4px;
+}
+
+.onboarding-identity-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
   color: var(--cream);
   font-family: 'Playfair Display', serif;
-  font-size: 18px;
+  font-size: 17px;
   font-style: italic;
-  text-align: center;
-  outline: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.03em;
 }
-.onboarding-name-input::placeholder { opacity: 0.3; }
+.onboarding-identity-btn span { font-size: 28px; font-style: normal; }
+.onboarding-identity-btn:hover {
+  background: rgba(240,98,146,0.15);
+  border-color: rgba(240,98,146,0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(240,98,146,0.2);
+}
+.onboarding-identity-btn:active { transform: scale(0.96); }
+
 .onboarding-dots {
   display: flex;
   gap: 8px;
