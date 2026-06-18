@@ -374,7 +374,7 @@ function renderOtherMood(data) {
     el = document.createElement('div');
     el.id = 'other-mood-display';
     el.className = 'other-mood-display';
-    const area = document.getElementById('chat-messages');
+    const area = getChatContainer();
     if (area) area.insertBefore(el, area.firstChild);
   }
   el.innerHTML = `<span class="other-mood-emoji">${data.emoji}</span><span>${user.name} est <strong>${data.label}</strong> aujourd'hui</span>`;
@@ -497,9 +497,16 @@ function notifyEvent(message) {
 /* ════════════════════════════════════════
    ENVOI D'UN MESSAGE
 ════════════════════════════════════════ */
+function getActiveInput() {
+  // Retourne l'input visible : onglet chat en priorité
+  const chatInput = document.getElementById('chat-input');
+  if (chatInput && chatInput.offsetParent !== null) return chatInput;
+  return document.getElementById('input');
+}
+
 async function sendChatMessage() {
   const me    = getCurrentUser();
-  const input = document.getElementById('input');
+  const input = getActiveInput();
   const text  = input?.value.trim();
   if (!text) return;
 
@@ -525,11 +532,17 @@ async function sendChatMessage() {
 /* ════════════════════════════════════════
    RENDU DES MESSAGES
 ════════════════════════════════════════ */
+function getChatContainer() {
+  // Priorité à l'onglet chat dédié, fallback sur home
+  return document.getElementById('chat-messages-area')
+      || document.getElementById('chat-messages');
+}
+
 function renderMessage(data, msgId) {
   const me       = getCurrentUser();
   const isMe     = data.from === me;
   const user     = USERS[data.from] || { name: data.from };
-  const chatList = document.getElementById('chat-messages');
+  const chatList = getChatContainer();
   if (!chatList) return;
   if (document.querySelector(`[data-msg-id="${msgId}"]`)) return;
 
@@ -566,18 +579,21 @@ function renderMessage(data, msgId) {
 }
 
 function scrollChatToBottom() {
-  const el = document.getElementById('chat-messages');
+  const el = getChatContainer();
   if (el) el.scrollTop = el.scrollHeight;
 }
 
 function updateInputPlaceholder() {
   const me    = getCurrentUser();
   const other = me ? USERS[getOtherUser(me)] : null;
-  const input = document.getElementById('input');
-  if (input && other) {
-    input.placeholder = `Écris à ${other.name}…`;
-    input.setAttribute('aria-label', `Message pour ${other.name}`);
-  }
+  if (!other) return;
+  ['input', 'chat-input'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.placeholder = `Écris à ${other.name}…`;
+      input.setAttribute('aria-label', `Message pour ${other.name}`);
+    }
+  });
   updateChatHeader();
 }
 
