@@ -374,10 +374,10 @@ function renderOtherMood(data) {
     el = document.createElement('div');
     el.id = 'other-mood-display';
     el.className = 'other-mood-display';
-    const chatWrapper = document.getElementById('chat-wrapper');
-    if (chatWrapper) chatWrapper.parentNode.insertBefore(el, chatWrapper);
+    const area = document.getElementById('chat-messages');
+    if (area) area.insertBefore(el, area.firstChild);
   }
-  el.innerHTML = `<span class="other-mood-emoji">${data.emoji}</span> <span>${user.name} est <strong>${data.label}</strong> aujourd'hui</span>`;
+  el.innerHTML = `<span class="other-mood-emoji">${data.emoji}</span><span>${user.name} est <strong>${data.label}</strong> aujourd'hui</span>`;
   el.style.animation = 'none';
   void el.offsetWidth;
   el.style.animation = 'fadeSlideIn 0.4s ease';
@@ -575,10 +575,27 @@ function updateInputPlaceholder() {
   const other = me ? USERS[getOtherUser(me)] : null;
   const input = document.getElementById('input');
   if (input && other) {
-    input.placeholder = `Envoie quelque chose à ${other.name}…`;
+    input.placeholder = `Écris à ${other.name}…`;
     input.setAttribute('aria-label', `Message pour ${other.name}`);
   }
+  updateChatHeader();
 }
+
+function updateChatHeader() {
+  const me    = getCurrentUser();
+  const other = me ? USERS[getOtherUser(me)] : null;
+  if (!other) return;
+  const nameEl   = document.getElementById('chat-header-name');
+  const avatarEl = document.getElementById('chat-header-avatar');
+  if (nameEl)   nameEl.textContent  = other.name;
+  if (avatarEl) avatarEl.textContent = other.emoji;
+}
+
+function onThinkBtnClick() {
+  localStorage.setItem('my-last-shared-signal', Date.now().toString());
+  sendSharedSignal();
+}
+window.onThinkBtnClick = onThinkBtnClick;
 
 function escapeHtml(str) {
   return str
@@ -601,59 +618,6 @@ window.send = function() {
 };
 
 /* ════════════════════════════════════════
-   INJECTION UI : bouton "Je pense à toi"
-   + bouton reset dans Plus
-════════════════════════════════════════ */
-function injectUI() {
-  // Bouton "Je pense à toi" dans les actions de la home
-  const actions = document.querySelector('.actions');
-  if (actions && !document.getElementById('shared-signal-btn')) {
-    const btn = document.createElement('button');
-    btn.id = 'shared-signal-btn';
-    btn.className = 'btn btn-shared-signal';
-    btn.innerHTML = '✦ Je pense à toi';
-    btn.setAttribute('aria-label', 'Envoyer un signal "je pense à toi"');
-    btn.onclick = () => {
-      localStorage.setItem('my-last-shared-signal', Date.now().toString());
-      sendSharedSignal();
-    };
-    actions.insertBefore(btn, actions.children[1]);
-  }
-
-  // Bouton reset identité dans Plus
-  const moreScreen = document.getElementById('screen-more');
-  if (moreScreen && !document.getElementById('reset-identity-btn')) {
-    const resetCard = document.createElement('div');
-    resetCard.style.cssText = 'width:100%;max-width:380px;padding:0 20px;margin-bottom:12px';
-    resetCard.innerHTML = `
-      <button id="reset-identity-btn" class="more-nav-card" onclick="resetIdentity()" style="opacity:0.5">
-        <span class="more-nav-icon">👤</span>
-        <div class="more-nav-body">
-          <div class="more-nav-title">Changer de profil</div>
-          <div class="more-nav-sub">recommencer le choix d'identité</div>
-        </div>
-        <span class="more-nav-arrow">›</span>
-      </button>
-    `;
-    // Insère après les autres boutons nav
-    const navCards = moreScreen.querySelector('div[style*="flex-direction:column"]');
-    if (navCards) navCards.appendChild(resetCard.querySelector('button'));
-  }
-
-  // Bouton humeur dans la home
-  const header = document.querySelector('.header');
-  if (header && !document.getElementById('mood-btn')) {
-    const moodBtn = document.createElement('button');
-    moodBtn.id = 'mood-btn';
-    moodBtn.className = 'mood-btn-header';
-    moodBtn.innerHTML = '🌟';
-    moodBtn.setAttribute('aria-label', 'Mon humeur du jour');
-    moodBtn.onclick = () => showMoodPrompt();
-    header.appendChild(moodBtn);
-  }
-}
-
-/* ════════════════════════════════════════
    INIT — attend que Firebase soit prêt
 ════════════════════════════════════════ */
 function waitForFirebase(callback, tries = 0) {
@@ -665,13 +629,6 @@ function waitForFirebase(callback, tries = 0) {
   } else {
     console.warn('Firebase non disponible après 3s');
   }
-}
-
-// Injecte l'UI dès que le DOM est prêt
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', injectUI);
-} else {
-  setTimeout(injectUI, 100);
 }
 
 waitForFirebase(() => {
