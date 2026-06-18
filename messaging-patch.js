@@ -12,7 +12,8 @@ const USERS = {
 console.log('patch chargé, _fb =', window._fb);
 
 function getCurrentUser() {
-  return localStorage.getItem('chat-identity') || null;
+  const v = localStorage.getItem('chat-identity') || localStorage.getItem('user-name');
+  return v ? v.toLowerCase() : null;
 }
 
 function getOtherUser(me) {
@@ -32,6 +33,7 @@ function initIdentityPicker() {
 }
 
 function chooseIdentity(userId) {
+  localStorage.setItem('user-name', userId);
   localStorage.setItem('chat-identity', userId);
   const overlay = document.getElementById('identity-overlay');
   if (overlay) {
