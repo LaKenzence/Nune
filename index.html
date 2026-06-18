@@ -160,6 +160,33 @@
     </div>
   </div>
 
+<!-- ════════ CHAT (onglet dédié) ════════ -->
+  <div class="screen" id="screen-chat" data-tab="chat">
+    <div id="screen-chat-inner" style="display:flex;flex-direction:column;height:100%;width:100%;">
+      <div class="chat-header">
+        <div class="chat-header-avatar" id="chat-header-avatar">💌</div>
+        <div class="chat-header-info">
+          <div class="chat-header-name" id="chat-header-name">Messages</div>
+          <div class="chat-header-status">en direct ✦</div>
+        </div>
+        <button class="chat-header-mood" onclick="showMoodPrompt()" title="Mon humeur">🌟</button>
+      </div>
+      <div class="chat-messages-area" id="chat-messages" aria-live="polite" aria-label="Messages"></div>
+      <div class="chat-input-bar">
+        <button class="chat-think-btn" id="shared-signal-btn" onclick="onThinkBtnClick()" title="Je pense à toi" aria-label="Je pense à toi">✦</button>
+        <input
+          id="input"
+          type="text"
+          placeholder="Écris quelque chose…"
+          aria-label="Écrire un message"
+          onkeydown="if(event.key==='Enter')send()"
+          autocomplete="off"
+        />
+        <button class="chat-send-btn" onclick="send()" aria-label="Envoyer">→</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ════════ MORE (hub) ════════ -->
   <div class="screen" id="screen-more" data-tab="more">
     <div class="screen-header">
@@ -213,6 +240,14 @@
         <div class="more-nav-body">
           <div class="more-nav-title">Thèmes visuels</div>
           <div class="more-nav-sub">change l'ambiance de l'app</div>
+        </div>
+        <span class="more-nav-arrow">›</span>
+      </button>
+      <button class="more-nav-card" onclick="resetIdentity()" style="opacity:0.5">
+        <span class="more-nav-icon">👤</span>
+        <div class="more-nav-body">
+          <div class="more-nav-title">Changer de profil</div>
+          <div class="more-nav-sub">recommencer le choix d'identité</div>
         </div>
         <span class="more-nav-arrow">›</span>
       </button>
@@ -318,7 +353,10 @@
   <button class="nav-tab active" id="tab-home" onclick="switchTab('home', 0)">
     <span class="tab-icon">✦</span><span>Signaux</span>
   </button>
-  <button class="nav-tab" id="tab-more" onclick="switchTab('more', 1)">
+  <button class="nav-tab" id="tab-chat" onclick="switchTab('chat', 1)">
+    <span class="tab-icon">💌</span><span>Messages</span>
+  </button>
+  <button class="nav-tab" id="tab-more" onclick="switchTab('more', 2)">
     <span class="tab-icon">••</span><span>Plus</span>
   </button>
 </nav>
@@ -326,7 +364,8 @@
 <!-- Swipe indicator dots -->
 <div class="swipe-dots" id="swipe-dots">
   <div class="swipe-dot active" onclick="switchTab('home',0)"></div>
-  <div class="swipe-dot" onclick="switchTab('more',1)"></div>
+  <div class="swipe-dot" onclick="switchTab('chat',1)"></div>
+  <div class="swipe-dot" onclick="switchTab('more',2)"></div>
 </div>
 
 <!-- ════════ PLAYLIST (subscreen) ════════ -->
