@@ -1,7 +1,8 @@
 /* ════════════════════════════════════════
    messaging-patch.js
    Messagerie temps réel via Firestore
-   + notifications via Service Worker
+   + réactions, signal partagé, humeur du jour
+   + reset identité
 ════════════════════════════════════════ */
 
 const USERS = {
@@ -11,6 +12,7 @@ const USERS = {
 
 console.log('patch chargé, _fb =', window._fb);
 
+/* ── Fix clé localStorage : supporte user-name ET chat-identity ── */
 function getCurrentUser() {
   const v = localStorage.getItem('chat-identity') || localStorage.getItem('user-name');
   return v ? v.toLowerCase() : null;
@@ -33,8 +35,8 @@ function initIdentityPicker() {
 }
 
 function chooseIdentity(userId) {
-  localStorage.setItem('user-name', userId);
   localStorage.setItem('chat-identity', userId);
+  localStorage.setItem('user-name', userId.charAt(0).toUpperCase() + userId.slice(1));
   const overlay = document.getElementById('identity-overlay');
   if (overlay) {
     overlay.style.opacity = '0';
@@ -44,6 +46,18 @@ function chooseIdentity(userId) {
   showToast(`Bienvenue ${USERS[userId].name} ${USERS[userId].emoji}`);
   initMessaging();
 }
+
+/* ════════════════════════════════════════
+   RESET IDENTITÉ
+════════════════════════════════════════ */
+function resetIdentity() {
+  if (!confirm('Changer de profil ?')) return;
+  localStorage.removeItem('chat-identity');
+  localStorage.removeItem('user-name');
+  localStorage.removeItem('onboarding-done');
+  window.location.reload();
+}
+window.resetIdentity = resetIdentity;
 
 /* ════════════════════════════════════════
    MESSAGING
@@ -60,11 +74,9 @@ async function initMessaging() {
   const me = getCurrentUser();
   if (!me) return;
 
-  // Récupère le SW et lui envoie l'identité pour qu'il écoute en background
   if ('serviceWorker' in navigator) {
     try {
       swRegistration = await navigator.serviceWorker.ready;
-      // Envoyer l'identité au SW → il démarre l'écoute Firestore de son côté
       if (swRegistration.active) {
         swRegistration.active.postMessage({ type: 'INIT_IDENTITY', identity: me });
       }
@@ -75,7 +87,11 @@ async function initMessaging() {
 
   await requestNotificationPermission();
   subscribeToMessages();
+  subscribeToReactions();
+  subscribeToSharedSignal();
+  subscribeToMood();
   updateInputPlaceholder();
+  checkMoodPrompt();
 }
 
 async function requestNotificationPermission() {
@@ -84,7 +100,6 @@ async function requestNotificationPermission() {
     const perm = await Notification.requestPermission();
     if (perm === 'granted') {
       showToast("Notifications activées 💌");
-      // Re-envoyer l'identité au SW maintenant qu'on a la permission
       if (swRegistration?.active) {
         swRegistration.active.postMessage({
           type: 'INIT_IDENTITY',
@@ -95,7 +110,7 @@ async function requestNotificationPermission() {
   }
 }
 
-/* ── Écoute Firestore (app au premier plan) ── */
+/* ── Écoute messages ── */
 function subscribeToMessages() {
   if (!window._fb) return;
   const { db, collection, onSnapshot, query, orderBy } = window._fb;
@@ -130,7 +145,313 @@ function subscribeToMessages() {
   }, (err) => console.error('Firestore error :', err));
 }
 
-/* ── Notification ── */
+/* ════════════════════════════════════════
+   RÉACTIONS AUX MESSAGES
+════════════════════════════════════════ */
+const REACTION_EMOJIS = ['❤️', '😍', '🥺', '✨', '😂', '🫂'];
+
+function subscribeToReactions() {
+  if (!window._fb) return;
+  const { db, collection, onSnapshot } = window._fb;
+
+  onSnapshot(collection(db, "reactions"), (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      const data = change.doc.data();
+      const msgId = data.msgId;
+      updateReactionDisplay(msgId, data.emoji, data.from);
+
+      // Notif si c'est une réaction à mon message
+      if (change.type === 'added' && data.from !== getCurrentUser()) {
+        const me = getCurrentUser();
+        const myMsg = document.querySelector(`[data-msg-id="${msgId}"].chat-msg--me`);
+        if (myMsg) {
+          const user = USERS[data.from] || { name: data.from, emoji: '💌' };
+          notifyEvent(`${user.emoji} ${user.name} a réagi ${data.emoji} à ton message`);
+        }
+      }
+    });
+  });
+}
+
+function updateReactionDisplay(msgId, emoji, from) {
+  const msgEl = document.querySelector(`[data-msg-id="${msgId}"]`);
+  if (!msgEl) return;
+
+  let reactionEl = msgEl.querySelector('.chat-reaction');
+  if (!reactionEl) {
+    reactionEl = document.createElement('div');
+    reactionEl.className = 'chat-reaction';
+    msgEl.querySelector('.chat-bubble').appendChild(reactionEl);
+  }
+  reactionEl.textContent = emoji;
+  reactionEl.style.animation = 'none';
+  void reactionEl.offsetWidth;
+  reactionEl.style.animation = 'reactionPop 0.4s ease';
+}
+
+function showReactionPicker(msgId) {
+  // Ferme l'ancien picker si ouvert
+  document.querySelectorAll('.reaction-picker').forEach(p => p.remove());
+
+  const msgEl = document.querySelector(`[data-msg-id="${msgId}"]`);
+  if (!msgEl) return;
+
+  const picker = document.createElement('div');
+  picker.className = 'reaction-picker';
+  picker.setAttribute('role', 'dialog');
+  picker.setAttribute('aria-label', 'Choisir une réaction');
+
+  REACTION_EMOJIS.forEach(emoji => {
+    const btn = document.createElement('button');
+    btn.textContent = emoji;
+    btn.className = 'reaction-emoji-btn';
+    btn.setAttribute('aria-label', `Réagir avec ${emoji}`);
+    btn.onclick = () => {
+      sendReaction(msgId, emoji);
+      picker.remove();
+    };
+    picker.appendChild(btn);
+  });
+
+  // Fermer en cliquant ailleurs
+  setTimeout(() => {
+    document.addEventListener('click', () => picker.remove(), { once: true });
+  }, 50);
+
+  msgEl.appendChild(picker);
+}
+
+async function sendReaction(msgId, emoji) {
+  if (!window._fb) return;
+  const me = getCurrentUser();
+  const { db, collection, addDoc } = window._fb;
+  try {
+    await addDoc(collection(db, "reactions"), {
+      msgId,
+      emoji,
+      from: me,
+      createdAt: window._fb.serverTimestamp(),
+    });
+    vibrate([15]);
+  } catch (err) {
+    console.error('Erreur réaction :', err);
+  }
+}
+
+/* ════════════════════════════════════════
+   SIGNAL PARTAGÉ — "Je pense à toi"
+════════════════════════════════════════ */
+let sharedSignalUnsubscribe = null;
+
+function subscribeToSharedSignal() {
+  if (!window._fb) return;
+  const { db, collection, onSnapshot, query, orderBy } = window._fb;
+
+  const q = query(collection(db, "shared_signals"), orderBy("createdAt", "desc"));
+
+  sharedSignalUnsubscribe = onSnapshot(q, (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      if (change.type !== 'added') return;
+      const data = change.doc.data();
+      const me = getCurrentUser();
+
+      // L'autre vient d'envoyer un signal → vérifie si on a aussi envoyé récemment
+      if (data.from !== me) {
+        checkSharedSignalMatch(data);
+      }
+    });
+  });
+}
+
+async function sendSharedSignal() {
+  if (!window._fb) return;
+  const me = getCurrentUser();
+  if (!me) return;
+
+  const { db, collection, addDoc, serverTimestamp } = window._fb;
+
+  try {
+    await addDoc(collection(db, "shared_signals"), {
+      from: me,
+      createdAt: serverTimestamp(),
+    });
+    vibrate([20, 10, 20]);
+    showToast("Signal envoyé… ✦ En attente de l'autre 💫");
+
+    // Bouton feedback
+    const btn = document.getElementById('shared-signal-btn');
+    if (btn) {
+      btn.textContent = '💫 Signal envoyé…';
+      btn.disabled = true;
+      setTimeout(() => {
+        btn.textContent = '✦ Je pense à toi';
+        btn.disabled = false;
+      }, 5 * 60 * 1000); // réactivé après 5min
+    }
+  } catch (err) {
+    console.error('Erreur signal partagé :', err);
+  }
+}
+window.sendSharedSignal = sendSharedSignal;
+
+async function checkSharedSignalMatch(otherSignal) {
+  if (!window._fb) return;
+  const me = getCurrentUser();
+  const { db, collection, query, orderBy } = window._fb;
+  // Vérifie si j'ai envoyé un signal dans les 5 dernières minutes
+  // On lit les derniers signaux de l'utilisateur courant
+  // Simple check : si le timestamp de l'autre est proche du dernier "envoyé" stocké localement
+  const myLastSignal = localStorage.getItem('my-last-shared-signal');
+  if (!myLastSignal) return;
+
+  const diff = Date.now() - parseInt(myLastSignal);
+  if (diff < 5 * 60 * 1000) {
+    // MATCH !
+    triggerSharedSignalMatch();
+  }
+}
+
+function triggerSharedSignalMatch() {
+  vibrate([50, 30, 50, 30, 100]);
+
+  // Overlay de match
+  const overlay = document.createElement('div');
+  overlay.className = 'shared-signal-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-label', 'Signal partagé !');
+  overlay.innerHTML = `
+    <div class="shared-signal-card">
+      <div class="shared-signal-emoji">💫</div>
+      <div class="shared-signal-title">Connexion simultanée</div>
+      <div class="shared-signal-text">Vous pensiez l'un à l'autre<br>au même moment ✦</div>
+      <button class="shared-signal-close" onclick="this.closest('.shared-signal-overlay').remove()">Fermer ✨</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  if (typeof spawnConfetti === 'function') spawnConfetti(60);
+
+  // Notif
+  notifyEvent('💫 Connexion simultanée ! Vous pensiez l\'un à l\'autre au même moment ✦');
+}
+
+/* ════════════════════════════════════════
+   HUMEUR DU JOUR
+════════════════════════════════════════ */
+const MOODS = [
+  { emoji: '🌟', label: 'Rayonnante' },
+  { emoji: '😴', label: 'Fatiguée' },
+  { emoji: '🥰', label: 'Amoureuse' },
+  { emoji: '😤', label: 'Énervée' },
+  { emoji: '🌧️', label: 'Mélancolique' },
+  { emoji: '✨', label: 'Bien' },
+];
+
+function subscribeToMood() {
+  if (!window._fb) return;
+  const { db, collection, onSnapshot } = window._fb;
+
+  onSnapshot(collection(db, "moods"), (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      const data = change.doc.data();
+      const me = getCurrentUser();
+
+      if (data.from !== me) {
+        // Humeur de l'autre → l'afficher dans l'UI
+        renderOtherMood(data);
+        if (change.type === 'added') {
+          const user = USERS[data.from] || { name: data.from, emoji: '💌' };
+          notifyEvent(`${user.emoji} ${user.name} est ${data.label} ${data.emoji} aujourd'hui`);
+        }
+      }
+    });
+  });
+}
+
+function renderOtherMood(data) {
+  const user = USERS[data.from] || { name: data.from, emoji: '💌' };
+  let el = document.getElementById('other-mood-display');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'other-mood-display';
+    el.className = 'other-mood-display';
+    const chatWrapper = document.getElementById('chat-wrapper');
+    if (chatWrapper) chatWrapper.parentNode.insertBefore(el, chatWrapper);
+  }
+  el.innerHTML = `<span class="other-mood-emoji">${data.emoji}</span> <span>${user.name} est <strong>${data.label}</strong> aujourd'hui</span>`;
+  el.style.animation = 'none';
+  void el.offsetWidth;
+  el.style.animation = 'fadeSlideIn 0.4s ease';
+}
+
+function checkMoodPrompt() {
+  const today = new Date().toDateString();
+  const lastMood = localStorage.getItem('my-mood-date');
+  if (lastMood === today) return;
+
+  // Affiche la popup d'humeur après 2s
+  setTimeout(() => showMoodPrompt(), 2000);
+}
+
+function showMoodPrompt() {
+  // Ne pas afficher si déjà visible
+  if (document.getElementById('mood-prompt')) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'mood-prompt';
+  overlay.className = 'mood-prompt-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-label', 'Ton humeur du jour');
+
+  const me = getCurrentUser();
+  const user = me ? USERS[me] : null;
+
+  overlay.innerHTML = `
+    <div class="mood-prompt-card">
+      <div class="mood-prompt-title">Comment tu vas aujourd'hui ?</div>
+      <div class="mood-prompt-sub">${user ? user.name : ''} ${user ? user.emoji : ''}</div>
+      <div class="mood-grid">
+        ${MOODS.map(m => `
+          <button class="mood-option" onclick="submitMood('${m.emoji}', '${m.label}')" aria-label="${m.label}">
+            <span class="mood-opt-emoji">${m.emoji}</span>
+            <span class="mood-opt-label">${m.label}</span>
+          </button>
+        `).join('')}
+      </div>
+      <button class="mood-skip" onclick="document.getElementById('mood-prompt').remove()">Plus tard</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+window.showMoodPrompt = showMoodPrompt;
+
+async function submitMood(emoji, label) {
+  const overlay = document.getElementById('mood-prompt');
+  if (overlay) overlay.remove();
+
+  if (!window._fb) return;
+  const me = getCurrentUser();
+  if (!me) return;
+
+  const { db, collection, addDoc, serverTimestamp } = window._fb;
+  try {
+    await addDoc(collection(db, "moods"), {
+      from: me,
+      emoji,
+      label,
+      createdAt: serverTimestamp(),
+    });
+    localStorage.setItem('my-mood-date', new Date().toDateString());
+    showToast(`Humeur partagée ${emoji}`);
+    vibrate([15]);
+  } catch (err) {
+    console.error('Erreur humeur :', err);
+  }
+}
+window.submitMood = submitMood;
+
+/* ════════════════════════════════════════
+   NOTIFICATIONS
+════════════════════════════════════════ */
 function notifyNewMessage(data) {
   const user  = USERS[data.from] || { name: data.from, emoji: "💌" };
   const title = `${user.emoji} ${user.name} t'a écrit 💌`;
@@ -140,13 +461,11 @@ function notifyNewMessage(data) {
 
   vibrate([30, 20, 30]);
 
-  // App visible → toast suffit, le SW n'affiche pas de notif système
   if (document.visibilityState === 'visible') {
     showToast(`${user.emoji} ${user.name} : ${body}`);
     return;
   }
 
-  // App en arrière-plan → demander au SW d'afficher la notif système
   if (Notification.permission !== 'granted') return;
 
   if (swRegistration?.active) {
@@ -157,6 +476,21 @@ function notifyNewMessage(data) {
       tag:      'twenty-three-msg',
       renotify: true,
     });
+  }
+}
+
+function notifyEvent(message) {
+  vibrate([20, 10, 20]);
+
+  if (document.visibilityState === 'visible') {
+    showToast(message);
+    return;
+  }
+
+  if (Notification.permission !== 'granted') return;
+  const title = 'Twenty Three ✦';
+  if (swRegistration?.active) {
+    swRegistration.active.postMessage({ type: 'SHOW_NOTIFICATION', title, body: message });
   }
 }
 
@@ -214,6 +548,20 @@ function renderMessage(data, msgId) {
       <span class="chat-bubble-time" aria-hidden="true">${time}</span>
     </div>
   `;
+
+  // Long press → réactions
+  let pressTimer;
+  div.addEventListener('touchstart', () => {
+    pressTimer = setTimeout(() => showReactionPicker(msgId), 500);
+  }, { passive: true });
+  div.addEventListener('touchend', () => clearTimeout(pressTimer), { passive: true });
+  div.addEventListener('touchmove', () => clearTimeout(pressTimer), { passive: true });
+  // Clic droit sur desktop
+  div.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    showReactionPicker(msgId);
+  });
+
   chatList.appendChild(div);
 }
 
@@ -253,6 +601,59 @@ window.send = function() {
 };
 
 /* ════════════════════════════════════════
+   INJECTION UI : bouton "Je pense à toi"
+   + bouton reset dans Plus
+════════════════════════════════════════ */
+function injectUI() {
+  // Bouton "Je pense à toi" dans les actions de la home
+  const actions = document.querySelector('.actions');
+  if (actions && !document.getElementById('shared-signal-btn')) {
+    const btn = document.createElement('button');
+    btn.id = 'shared-signal-btn';
+    btn.className = 'btn btn-shared-signal';
+    btn.innerHTML = '✦ Je pense à toi';
+    btn.setAttribute('aria-label', 'Envoyer un signal "je pense à toi"');
+    btn.onclick = () => {
+      localStorage.setItem('my-last-shared-signal', Date.now().toString());
+      sendSharedSignal();
+    };
+    actions.insertBefore(btn, actions.children[1]);
+  }
+
+  // Bouton reset identité dans Plus
+  const moreScreen = document.getElementById('screen-more');
+  if (moreScreen && !document.getElementById('reset-identity-btn')) {
+    const resetCard = document.createElement('div');
+    resetCard.style.cssText = 'width:100%;max-width:380px;padding:0 20px;margin-bottom:12px';
+    resetCard.innerHTML = `
+      <button id="reset-identity-btn" class="more-nav-card" onclick="resetIdentity()" style="opacity:0.5">
+        <span class="more-nav-icon">👤</span>
+        <div class="more-nav-body">
+          <div class="more-nav-title">Changer de profil</div>
+          <div class="more-nav-sub">recommencer le choix d'identité</div>
+        </div>
+        <span class="more-nav-arrow">›</span>
+      </button>
+    `;
+    // Insère après les autres boutons nav
+    const navCards = moreScreen.querySelector('div[style*="flex-direction:column"]');
+    if (navCards) navCards.appendChild(resetCard.querySelector('button'));
+  }
+
+  // Bouton humeur dans la home
+  const header = document.querySelector('.header');
+  if (header && !document.getElementById('mood-btn')) {
+    const moodBtn = document.createElement('button');
+    moodBtn.id = 'mood-btn';
+    moodBtn.className = 'mood-btn-header';
+    moodBtn.innerHTML = '🌟';
+    moodBtn.setAttribute('aria-label', 'Mon humeur du jour');
+    moodBtn.onclick = () => showMoodPrompt();
+    header.appendChild(moodBtn);
+  }
+}
+
+/* ════════════════════════════════════════
    INIT — attend que Firebase soit prêt
 ════════════════════════════════════════ */
 function waitForFirebase(callback, tries = 0) {
@@ -264,6 +665,13 @@ function waitForFirebase(callback, tries = 0) {
   } else {
     console.warn('Firebase non disponible après 3s');
   }
+}
+
+// Injecte l'UI dès que le DOM est prêt
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', injectUI);
+} else {
+  setTimeout(injectUI, 100);
 }
 
 waitForFirebase(() => {
