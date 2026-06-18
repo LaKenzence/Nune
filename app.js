@@ -100,7 +100,7 @@ async function migratePhotosFromLocalStorage() {
 /* ════════════════════════════════════════
    SWIPE NAVIGATION SYSTEM
 ════════════════════════════════════════ */
-const TABS = ['home', 'more'];
+const TABS = ['home', 'chat', 'more'];
 let currentTabIndex = 0;
 let swipeStartX = 0;
 let swipeStartY = 0;
@@ -146,6 +146,7 @@ function switchTab(name, idx) {
   });
 
   if (name === 'more') renderMoreScreen();
+  if (name === 'chat') renderChatScreen();
   if (navigator.vibrate) navigator.vibrate(8);
 }
 
@@ -1023,6 +1024,13 @@ function secretMode() {
   } else {
     showToast(["Un signal…", "Encore un…"][secretModeCount - 1] || "");
   }
+}
+
+/* ════════════════════════════════════════
+   CHAT SCREEN
+════════════════════════════════════════ */
+function renderChatScreen() {
+  // Mis à jour par messaging-patch via updateChatHeader()
 }
 
 /* ════════════════════════════════════════
