@@ -548,12 +548,17 @@ function renderMessage(data, msgId) {
     ? data.createdAt.toDate().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
     : '';
 
+  const isFirstInGroup = !chatList.lastElementChild ||
+    chatList.lastElementChild.classList.contains('chat-msg--me') ||
+    chatList.lastElementChild.classList.contains('chat-date-sep');
+
   const div = document.createElement('div');
   div.className   = `chat-msg ${isMe ? 'chat-msg--me' : 'chat-msg--them'}`;
   div.dataset.msgId = msgId;
   div.setAttribute('role', 'article');
   div.setAttribute('aria-label', `${user.name} : ${data.text}`);
   div.innerHTML = `
+    ${!isMe && isFirstInGroup ? `<span class="chat-sender-name">${user.emoji || ''} ${user.name}</span>` : ''}
     <div class="chat-bubble">
       <span class="chat-bubble-text">${escapeHtml(data.text)}</span>
       <span class="chat-bubble-time" aria-hidden="true">${time}</span>
