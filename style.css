@@ -1811,7 +1811,8 @@ body {
 }
 
 /* Empty state */
-.chat-messages-area:empty::after {
+.chat-messages-area:empty::after,
+#chat-messages-area:empty::after {
   content: "Aucun message encore… ✦";
   display: block;
   text-align: center;
