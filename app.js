@@ -504,9 +504,9 @@ const ONBOARDING_STEPS = [
   },
   {
     visual: "💖",
-    title: "Comment tu\nveux qu'on t'appelle ?",
-    text: "Pour que les signaux soient vraiment pour toi.",
-    hasInput: true
+    title: "Tu es…",
+    text: "Pour que tes messages arrivent au bon endroit.",
+    hasIdentityPicker: true
   }
 ];
 
@@ -529,19 +529,21 @@ function renderOnboardingStep(idx) {
       <div class="onboarding-visual" aria-hidden="true">${step.visual}</div>
       <div class="onboarding-title">${step.title.replace(/\n/g,'<br>')}</div>
       <div class="onboarding-text">${step.text.replace(/\n/g,'<br>')}</div>
-      ${step.hasInput ? `<input
-          class="onboarding-name-input"
-          id="onboarding-name"
-          type="text"
-          placeholder="ton prénom…"
-          maxlength="20"
-          autocomplete="off"
-          aria-label="Ton prénom"
-        >` : ''}
+      ${step.hasIdentityPicker ? `
+        <div class="onboarding-identity-btns">
+          <button class="onboarding-identity-btn" onclick="chooseIdentityOnboarding('kenzo')">
+            <span>✦</span> Kenzo
+          </button>
+          <button class="onboarding-identity-btn" onclick="chooseIdentityOnboarding('nune')">
+            <span>🌙</span> Nune
+          </button>
+        </div>
+      ` : `
       <button class="btn-onboarding" onclick="nextOnboardingStep()">
         ${idx < ONBOARDING_STEPS.length - 1 ? 'Continuer →' : 'Commencer ✦'}
       </button>
       ${idx > 0 ? `<button class="btn-onboarding ghost" onclick="renderOnboardingStep(${idx-1})">← Retour</button>` : ''}
+      `}
     </div>
   `;
 
@@ -554,10 +556,6 @@ function renderOnboardingStep(idx) {
 
 function nextOnboardingStep() {
   if (onboardingStep === ONBOARDING_STEPS.length - 1) {
-    const nameInput = document.getElementById('onboarding-name');
-    if (nameInput && nameInput.value.trim()) {
-      localStorage.setItem('user-name', nameInput.value.trim());
-    }
     finishOnboarding();
   } else {
     renderOnboardingStep(onboardingStep + 1);
@@ -574,10 +572,22 @@ function finishOnboarding() {
     ob.style.opacity = '';
     ob.style.transition = '';
     spawnConfetti(50);
-    const name = localStorage.getItem('user-name') || 'Nune';
-    showToast(`Bienvenue ${name} ✨`);
+    const identity = localStorage.getItem('chat-identity');
+    const names = { kenzo: 'Kenzo ✦', nune: 'Nune 🌙' };
+    showToast(`Bienvenue ${names[identity] || ''} ✨`);
   }, 500);
 }
+
+function chooseIdentityOnboarding(userId) {
+  const names = { kenzo: 'Kenzo', nune: 'Nune' };
+  localStorage.setItem('chat-identity', userId);
+  localStorage.setItem('user-name', names[userId]);
+  finishOnboarding();
+  setTimeout(() => {
+    if (window._initMessagingAfterOnboarding) window._initMessagingAfterOnboarding();
+  }, 600);
+}
+window.chooseIdentityOnboarding = chooseIdentityOnboarding;
 
 /* ════════════════════════════════════════
    DAILY SIGNAL
