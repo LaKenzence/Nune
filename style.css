@@ -1611,12 +1611,22 @@ body {
   display: none !important;
 }
 
-/* Écran chat plein écran */
+/* Écran chat : override du .screen générique */
 #screen-chat {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* Inner wrapper flex column full height */
+#screen-chat-inner {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 0;
+  width: 100%;
   overflow: hidden;
 }
 
@@ -1642,7 +1652,7 @@ body {
 }
 
 .chat-header-info { flex: 1; }
-.chat-header-name { font-family: 'Playfair Display', serif; font-size: 16px; }
+.chat-header-name { font-family: 'Playfair Display', serif; font-size: 16px; color: var(--cream); }
 .chat-header-status {
   font-size: 11px;
   opacity: 0.4;
@@ -1653,13 +1663,16 @@ body {
   font-size: 20px;
   cursor: pointer;
   opacity: 0.7;
+  background: none;
+  border: none;
   transition: opacity 0.2s, transform 0.2s;
 }
 .chat-header-mood:hover { opacity: 1; transform: scale(1.15); }
 
 /* Zone messages scrollable */
-.chat-messages-area {
-  flex: 1;
+#chat-messages-area {
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 16px 16px 8px;
@@ -1669,7 +1682,7 @@ body {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
 }
-.chat-messages-area::-webkit-scrollbar { width: 0; }
+#chat-messages-area::-webkit-scrollbar { width: 0; }
 
 /* Humeur de l'autre */
 .other-mood-display {
@@ -1688,7 +1701,7 @@ body {
 }
 .other-mood-emoji { font-size: 18px; }
 
-/* Groupes de messages */
+/* Messages */
 .chat-msg {
   display: flex;
   flex-direction: column;
@@ -1733,7 +1746,6 @@ body {
   border-bottom-left-radius: 5px;
 }
 
-/* Quand plusieurs messages consécutifs du même expéditeur */
 .chat-msg--me + .chat-msg--me .chat-bubble { border-radius: 20px 20px 5px 20px; }
 .chat-msg--them + .chat-msg--them .chat-bubble { border-radius: 20px 20px 20px 5px; }
 
@@ -1811,7 +1823,6 @@ body {
 }
 
 /* Empty state */
-.chat-messages-area:empty::after,
 #chat-messages-area:empty::after {
   content: "Aucun message encore… ✦";
   display: block;
@@ -1827,7 +1838,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px 14px;
+  padding: 10px 14px calc(14px + env(safe-area-inset-bottom));
   border-top: 1px solid rgba(255,255,255,0.07);
   flex-shrink: 0;
   background: rgba(26,16,51,0.6);
@@ -1868,7 +1879,7 @@ body {
 .chat-send-btn:hover { transform: scale(1.08); }
 .chat-send-btn:active { transform: scale(0.95); }
 
-/* Bouton "Je pense à toi" dans le chat */
+/* Bouton "Je pense à toi" */
 .chat-think-btn {
   background: none;
   border: 1px solid rgba(255,255,255,0.12);
