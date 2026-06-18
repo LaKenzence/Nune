@@ -533,9 +533,7 @@ async function sendChatMessage() {
    RENDU DES MESSAGES
 ════════════════════════════════════════ */
 function getChatContainer() {
-  // Priorité à l'onglet chat dédié, fallback sur home
-  return document.getElementById('chat-messages-area')
-      || document.getElementById('chat-messages');
+  return document.getElementById('chat-messages-area');
 }
 
 function renderMessage(data, msgId) {
