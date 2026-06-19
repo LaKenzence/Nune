@@ -158,28 +158,68 @@
 
 <!-- ════════ CHAT (onglet dédié) ════════ -->
   <div class="screen" id="screen-chat" data-tab="chat">
-    <div id="screen-chat-inner" style="display:flex;flex-direction:column;height:100%;width:100%;">
-      <div class="chat-header">
-        <div class="chat-header-avatar" id="chat-header-avatar">💌</div>
-        <div class="chat-header-info">
-          <div class="chat-header-name" id="chat-header-name">Messages</div>
-          <div class="chat-header-status">en direct ✦</div>
+    <div id="screen-chat-inner">
+
+      <!-- En-tête minimal -->
+      <div class="msg-screen-header">
+        <span class="msg-screen-avatar" id="msg-screen-avatar">💌</span>
+        <div>
+          <div class="msg-screen-name" id="msg-screen-name">—</div>
+          <div class="msg-screen-status">en direct ✦</div>
         </div>
-        <button class="chat-header-mood" onclick="showMoodPrompt()" title="Mon humeur">🌟</button>
       </div>
-      <div class="chat-messages-area" id="chat-messages-area" aria-live="polite" aria-label="Messages"></div>
-      <div class="chat-input-bar">
-        <button class="chat-think-btn" id="shared-signal-btn" onclick="onThinkBtnClick()" title="Je pense à toi" aria-label="Je pense à toi">✦</button>
+
+      <!-- Zone centrale : dernier message reçu -->
+      <div class="msg-stage" id="msg-stage">
+        <div class="msg-empty-state" id="msg-empty-state">
+          <div class="msg-empty-icon">💌</div>
+          <div class="msg-empty-text">aucun message encore…</div>
+        </div>
+
+        <!-- Bulle du dernier message -->
+        <div class="msg-card" id="msg-card" style="display:none">
+          <div class="msg-card-from" id="msg-card-from"></div>
+          <div class="msg-card-text" id="msg-card-text"></div>
+          <div class="msg-card-time" id="msg-card-time"></div>
+          <!-- Réactions -->
+          <div class="msg-reactions" id="msg-reactions"></div>
+          <!-- Picker réactions -->
+          <div class="msg-react-btn-row">
+            <button class="msg-react-trigger" id="msg-react-trigger" onclick="toggleMsgReactPicker()">
+              réagir ✦
+            </button>
+          </div>
+          <div class="msg-react-picker" id="msg-react-picker" style="display:none">
+            <button onclick="pickMsgReaction('❤️')">❤️</button>
+            <button onclick="pickMsgReaction('🥺')">🥺</button>
+            <button onclick="pickMsgReaction('✨')">✨</button>
+            <button onclick="pickMsgReaction('😊')">😊</button>
+            <button onclick="pickMsgReaction('💀')">💀</button>
+            <button onclick="pickMsgReaction('🫶')">🫶</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mon message envoyé (petit, en bas) -->
+      <div class="msg-my-last" id="msg-my-last" style="display:none">
+        <div class="msg-my-label">toi</div>
+        <div class="msg-my-text" id="msg-my-text"></div>
+        <div class="msg-my-time" id="msg-my-time"></div>
+      </div>
+
+      <!-- Input -->
+      <div class="msg-input-bar">
+        <button class="msg-signal-btn" id="shared-signal-btn" onclick="onThinkBtnClick()" title="Je pense à toi">✦</button>
         <input
           id="chat-input"
           type="text"
-          placeholder="Écris quelque chose…"
-          aria-label="Écrire un message"
+          placeholder="écris quelque chose…"
           onkeydown="if(event.key==='Enter')send()"
           autocomplete="off"
         />
-        <button class="chat-send-btn" onclick="send()" aria-label="Envoyer">→</button>
+        <button class="msg-send-btn" onclick="send()">→</button>
       </div>
+
     </div>
   </div>
 
