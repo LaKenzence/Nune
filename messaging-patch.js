@@ -556,67 +556,106 @@ function getChatContainer() {
   return document.getElementById('chat-messages-area');
 }
 
-function renderMessage(data, msgId) {
-  const me       = getCurrentUser();
-  const isMe     = data.from === me;
-  const user     = USERS[data.from] || { name: data.from };
-  const chatList = getChatContainer();
-  if (!chatList) return;
-  if (document.querySelector(`[data-msg-id="${msgId}"]`)) return;
+function scrollChatToBottom() { /* no-op */ }
 
+/* ── État local des derniers messages ── */
+let _lastTheirMsg  = null; // { data, msgId }
+let _lastMyMsg     = null;
+
+function renderMessage(data, msgId) {
+  const me   = getCurrentUser();
+  const isMe = data.from === me;
+
+  if (isMe) {
+    _lastMyMsg = { data, msgId };
+    renderMyLast();
+  } else {
+    _lastTheirMsg = { data, msgId };
+    renderTheirLast();
+  }
+}
+
+function renderTheirLast() {
+  if (!_lastTheirMsg) return;
+  const { data, msgId } = _lastTheirMsg;
+  const user = USERS[data.from] || { name: data.from, emoji: '💌' };
   const time = data.createdAt?.toDate
     ? data.createdAt.toDate().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
     : '';
 
-  const isFirstInGroup = !chatList.lastElementChild ||
-    chatList.lastElementChild.classList.contains('chat-msg--me') ||
-    chatList.lastElementChild.classList.contains('chat-date-sep');
+  const empty = document.getElementById('msg-empty-state');
+  const card  = document.getElementById('msg-card');
+  if (empty) empty.style.display = 'none';
+  if (card)  card.style.display  = '';
 
-  const div = document.createElement('div');
-  div.className   = `chat-msg ${isMe ? 'chat-msg--me' : 'chat-msg--them'}`;
-  div.dataset.msgId = msgId;
-  div.setAttribute('role', 'article');
-  div.setAttribute('aria-label', `${user.name} : ${data.text}`);
-  div.innerHTML = `
-    ${!isMe && isFirstInGroup ? `<span class="chat-sender-name">${user.emoji || ''} ${user.name}</span>` : ''}
-    <div class="chat-bubble">
-      <span class="chat-bubble-text">${escapeHtml(data.text)}</span>
-      <span class="chat-bubble-time" aria-hidden="true">${time}</span>
-    </div>
-  `;
+  const fromEl = document.getElementById('msg-card-from');
+  const textEl = document.getElementById('msg-card-text');
+  const timeEl = document.getElementById('msg-card-time');
+  if (fromEl) fromEl.textContent = `${user.emoji} ${user.name}`;
+  if (textEl) textEl.textContent = data.text || '';
+  if (timeEl) timeEl.textContent = time;
 
-  // Long press → réactions
-  let pressTimer;
-  div.addEventListener('touchstart', () => {
-    pressTimer = setTimeout(() => showReactionPicker(msgId), 500);
-  }, { passive: true });
-  div.addEventListener('touchend', () => clearTimeout(pressTimer), { passive: true });
-  div.addEventListener('touchmove', () => clearTimeout(pressTimer), { passive: true });
-  // Clic droit sur desktop
-  div.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    showReactionPicker(msgId);
-  });
-
-  chatList.appendChild(div);
+  card.dataset.msgId = msgId;
+  renderMsgReactions(msgId);
 }
 
-function scrollChatToBottom() {
-  const el = getChatContainer();
-  if (el) el.scrollTop = el.scrollHeight;
+function renderMyLast() {
+  if (!_lastMyMsg) return;
+  const { data } = _lastMyMsg;
+  const time = data.createdAt?.toDate
+    ? data.createdAt.toDate().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : '';
+
+  const wrap   = document.getElementById('msg-my-last');
+  const textEl = document.getElementById('msg-my-text');
+  const timeEl = document.getElementById('msg-my-time');
+  if (wrap)   wrap.style.display   = '';
+  if (textEl) textEl.textContent   = data.text || '';
+  if (timeEl) timeEl.textContent   = time;
 }
+
+function renderMsgReactions(msgId) {
+  const el = document.getElementById('msg-reactions');
+  if (!el) return;
+  // les réactions existantes seront mises à jour via listenReactions
+}
+
+function toggleMsgReactPicker() {
+  const picker = document.getElementById('msg-react-picker');
+  if (!picker) return;
+  picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+}
+window.toggleMsgReactPicker = toggleMsgReactPicker;
+
+function pickMsgReaction(emoji) {
+  const card = document.getElementById('msg-card');
+  if (!card?.dataset.msgId) return;
+  sendReaction(card.dataset.msgId, emoji);
+  const picker = document.getElementById('msg-react-picker');
+  if (picker) picker.style.display = 'none';
+  // Feedback visuel immédiat
+  const el = document.getElementById('msg-reactions');
+  if (el) {
+    let span = el.querySelector(`[data-emoji="${emoji}"]`);
+    if (!span) {
+      span = document.createElement('span');
+      span.dataset.emoji = emoji;
+      span.className = 'msg-reaction-badge';
+      el.appendChild(span);
+    }
+    span.textContent = emoji;
+    span.classList.add('msg-reaction-pop');
+    setTimeout(() => span.classList.remove('msg-reaction-pop'), 400);
+  }
+}
+window.pickMsgReaction = pickMsgReaction;
 
 function updateInputPlaceholder() {
   const me    = getCurrentUser();
   const other = me ? USERS[getOtherUser(me)] : null;
   if (!other) return;
-  ['input', 'chat-input'].forEach(id => {
-    const input = document.getElementById(id);
-    if (input) {
-      input.placeholder = `Écris à ${other.name}…`;
-      input.setAttribute('aria-label', `Message pour ${other.name}`);
-    }
-  });
+  const input = document.getElementById('chat-input');
+  if (input) input.placeholder = `écris à ${other.name}…`;
   updateChatHeader();
 }
 
@@ -624,9 +663,9 @@ function updateChatHeader() {
   const me    = getCurrentUser();
   const other = me ? USERS[getOtherUser(me)] : null;
   if (!other) return;
-  const nameEl   = document.getElementById('chat-header-name');
-  const avatarEl = document.getElementById('chat-header-avatar');
-  if (nameEl)   nameEl.textContent  = other.name;
+  const nameEl   = document.getElementById('msg-screen-name');
+  const avatarEl = document.getElementById('msg-screen-avatar');
+  if (nameEl)   nameEl.textContent   = other.name;
   if (avatarEl) avatarEl.textContent = other.emoji;
 }
 
