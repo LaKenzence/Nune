@@ -30,10 +30,20 @@ function initIdentityPicker() {
     initMessaging();
     return;
   }
-  // L'identité est choisie dans l'onboarding (chooseIdentityOnboarding)
-  // Si l'onboarding est déjà passé mais pas d'identité → réafficher l'overlay legacy
-  const overlay = document.getElementById('identity-overlay');
-  if (overlay) overlay.classList.add('active');
+  // Onboarding pas encore terminé → il gérera l'identité
+  // On attend sans afficher l'overlay
+  const waitForIdentity = setInterval(() => {
+    if (getCurrentUser()) {
+      clearInterval(waitForIdentity);
+      initMessaging();
+    }
+  }, 300);
+  // Fallback : si onboarding déjà fait mais identité perdue → overlay legacy
+  if (localStorage.getItem('onboarding-done')) {
+    clearInterval(waitForIdentity);
+    const overlay = document.getElementById('identity-overlay');
+    if (overlay) overlay.classList.add('active');
+  }
 }
 
 function chooseIdentity(userId) {
@@ -169,9 +179,7 @@ function subscribeToReactions() {
 
       // Notif si c'est une réaction à mon message
       if (change.type === 'added' && data.from !== getCurrentUser()) {
-        const me = getCurrentUser();
-        const myMsg = document.querySelector(`[data-msg-id="${msgId}"].chat-msg--me`);
-        if (myMsg) {
+        if (_lastMyMsg && _lastMyMsg.msgId === data.msgId) {
           const user = USERS[data.from] || { name: data.from, emoji: '💌' };
           notifyEvent(`${user.emoji} ${user.name} a réagi ${data.emoji} à ton message`);
         }
@@ -181,19 +189,24 @@ function subscribeToReactions() {
 }
 
 function updateReactionDisplay(msgId, emoji, from) {
-  const msgEl = document.querySelector(`[data-msg-id="${msgId}"]`);
-  if (!msgEl) return;
+  // Nouveau layout : on affiche sur la carte si c'est le message courant
+  const card = document.getElementById('msg-card');
+  if (!card || card.dataset.msgId !== msgId) return;
 
-  let reactionEl = msgEl.querySelector('.chat-reaction');
-  if (!reactionEl) {
-    reactionEl = document.createElement('div');
-    reactionEl.className = 'chat-reaction';
-    msgEl.querySelector('.chat-bubble').appendChild(reactionEl);
+  const el = document.getElementById('msg-reactions');
+  if (!el) return;
+
+  let badge = el.querySelector(`[data-emoji="${emoji}"]`);
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.dataset.emoji = emoji;
+    badge.className = 'msg-reaction-badge';
+    el.appendChild(badge);
   }
-  reactionEl.textContent = emoji;
-  reactionEl.style.animation = 'none';
-  void reactionEl.offsetWidth;
-  reactionEl.style.animation = 'reactionPop 0.4s ease';
+  badge.textContent = emoji;
+  badge.classList.remove('msg-reaction-pop');
+  void badge.offsetWidth;
+  badge.classList.add('msg-reaction-pop');
 }
 
 function showReactionPicker(msgId) {
