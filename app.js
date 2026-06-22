@@ -504,9 +504,9 @@ const ONBOARDING_STEPS = [
   },
   {
     visual: "💖",
-    title: "Tu es…",
-    text: "Pour que tes messages arrivent au bon endroit.",
-    hasIdentityPicker: true
+    title: "Comment tu\nveux qu'on t'appelle ?",
+    text: "Pour que les signaux soient vraiment pour toi.",
+    hasInput: true
   }
 ];
 
@@ -529,21 +529,19 @@ function renderOnboardingStep(idx) {
       <div class="onboarding-visual" aria-hidden="true">${step.visual}</div>
       <div class="onboarding-title">${step.title.replace(/\n/g,'<br>')}</div>
       <div class="onboarding-text">${step.text.replace(/\n/g,'<br>')}</div>
-      ${step.hasIdentityPicker ? `
-        <div class="onboarding-identity-btns">
-          <button class="onboarding-identity-btn" onclick="chooseIdentityOnboarding('kenzo')">
-            <span>✦</span> Kenzo
-          </button>
-          <button class="onboarding-identity-btn" onclick="chooseIdentityOnboarding('nune')">
-            <span>🌙</span> Nune
-          </button>
-        </div>
-      ` : `
+      ${step.hasInput ? `<input
+          class="onboarding-name-input"
+          id="onboarding-name"
+          type="text"
+          placeholder="ton prénom…"
+          maxlength="20"
+          autocomplete="off"
+          aria-label="Ton prénom"
+        >` : ''}
       <button class="btn-onboarding" onclick="nextOnboardingStep()">
         ${idx < ONBOARDING_STEPS.length - 1 ? 'Continuer →' : 'Commencer ✦'}
       </button>
       ${idx > 0 ? `<button class="btn-onboarding ghost" onclick="renderOnboardingStep(${idx-1})">← Retour</button>` : ''}
-      `}
     </div>
   `;
 
@@ -556,6 +554,10 @@ function renderOnboardingStep(idx) {
 
 function nextOnboardingStep() {
   if (onboardingStep === ONBOARDING_STEPS.length - 1) {
+    const nameInput = document.getElementById('onboarding-name');
+    if (nameInput && nameInput.value.trim()) {
+      localStorage.setItem('user-name', nameInput.value.trim());
+    }
     finishOnboarding();
   } else {
     renderOnboardingStep(onboardingStep + 1);
@@ -572,22 +574,10 @@ function finishOnboarding() {
     ob.style.opacity = '';
     ob.style.transition = '';
     spawnConfetti(50);
-    const identity = localStorage.getItem('chat-identity');
-    const names = { kenzo: 'Kenzo ✦', nune: 'Nune 🌙' };
-    showToast(`Bienvenue ${names[identity] || ''} ✨`);
+    const name = localStorage.getItem('user-name') || 'Nune';
+    showToast(`Bienvenue ${name} ✨`);
   }, 500);
 }
-
-function chooseIdentityOnboarding(userId) {
-  const names = { kenzo: 'Kenzo', nune: 'Nune' };
-  localStorage.setItem('chat-identity', userId);
-  localStorage.setItem('user-name', names[userId]);
-  finishOnboarding();
-  setTimeout(() => {
-    if (window._initMessagingAfterOnboarding) window._initMessagingAfterOnboarding();
-  }, 600);
-}
-window.chooseIdentityOnboarding = chooseIdentityOnboarding;
 
 /* ════════════════════════════════════════
    DAILY SIGNAL
@@ -606,40 +596,138 @@ function getDailySignal() {
 }
 
 /* ════════════════════════════════════════
-   STARS CANVAS
+   STARS CANVAS — ciel vivant
 ════════════════════════════════════════ */
 (function() {
   const canvas = document.getElementById('stars-canvas');
   const ctx = canvas.getContext('2d');
   let stars = [];
+  let shootingStars = [];
+  let ripples = [];
+  let nextShootTime = 0;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+
   function initStars() {
     stars = [];
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 90; i++) {
+      const depth = Math.random(); // 0 = lointain/petit, 1 = proche/gros
       stars.push({
         x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-        r: Math.random() * 1.4 + 0.3, alpha: Math.random() * 0.5 + 0.1,
-        speed: Math.random() * 0.3 + 0.05, drift: (Math.random() - 0.5) * 0.2,
-        twinkle: Math.random() * Math.PI * 2
+        r: 0.3 + depth * 1.3,
+        alpha: 0.15 + depth * 0.45,
+        speed: 0.03 + depth * 0.25,
+        drift: (Math.random() - 0.5) * 0.15,
+        twinkle: Math.random() * Math.PI * 2,
+        twinkleSpeed: 0.012 + Math.random() * 0.02,
+        depth,
+        baseR: 0.3 + depth * 1.3,
       });
     }
+    scheduleNextShootingStar();
   }
+
+  function scheduleNextShootingStar() {
+    nextShootTime = Date.now() + 6000 + Math.random() * 9000;
+  }
+
+  function spawnShootingStar() {
+    const fromLeft = Math.random() > 0.5;
+    const y = Math.random() * canvas.height * 0.5;
+    shootingStars.push({
+      x: fromLeft ? -20 : canvas.width + 20,
+      y,
+      vx: (fromLeft ? 1 : -1) * (5 + Math.random() * 3),
+      vy: 1.5 + Math.random() * 1.5,
+      life: 1,
+      len: 70 + Math.random() * 40,
+    });
+  }
+
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Étoiles ambiantes
     stars.forEach(s => {
-      s.twinkle += 0.02;
-      const a = s.alpha * (0.6 + 0.4 * Math.sin(s.twinkle));
-      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,220,240,${a})`; ctx.fill();
-      s.y -= s.speed; s.x += s.drift;
+      s.twinkle += s.twinkleSpeed;
+      const twinkleA = s.alpha * (0.6 + 0.4 * Math.sin(s.twinkle));
+
+      // Effet ripple : étoiles proches d'un tap grossissent brièvement
+      let rBoost = 0, aBoost = 0;
+      ripples.forEach(r => {
+        const dx = s.x - r.x, dy = s.y - r.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const edge = Math.abs(dist - r.radius);
+        if (edge < 60) {
+          const strength = (1 - edge / 60) * r.alpha;
+          rBoost += strength * 1.8;
+          aBoost += strength * 0.5;
+        }
+      });
+
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r + rBoost, 0, Math.PI * 2);
+      const a = Math.min(1, twinkleA + aBoost);
+      ctx.fillStyle = `rgba(255,225,245,${a})`;
+      ctx.fill();
+
+      if (!reducedMotion) {
+        s.y -= s.speed; s.x += s.drift;
+      }
       if (s.y < -5) { s.y = canvas.height + 5; s.x = Math.random() * canvas.width; }
       if (s.x < -5) s.x = canvas.width + 5;
       if (s.x > canvas.width + 5) s.x = -5;
     });
+
+    // Ripples (ondes au tap)
+    ripples.forEach(r => { r.radius += 3.5; r.alpha *= 0.94; });
+    ripples = ripples.filter(r => r.alpha > 0.02);
+
+    // Étoiles filantes
+    if (!reducedMotion) {
+      if (Date.now() > nextShootTime && shootingStars.length === 0) {
+        spawnShootingStar();
+        scheduleNextShootingStar();
+      }
+      shootingStars.forEach(s => {
+        const grad = ctx.createLinearGradient(s.x, s.y, s.x - s.vx * (s.len / 6), s.y - s.vy * (s.len / 6));
+        grad.addColorStop(0, `rgba(255,245,220,${s.life})`);
+        grad.addColorStop(1, 'rgba(255,245,220,0)');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(s.x - s.vx * (s.len / 6), s.y - s.vy * (s.len / 6));
+        ctx.stroke();
+
+        // Tête lumineuse
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,250,235,${s.life})`;
+        ctx.fill();
+
+        s.x += s.vx; s.y += s.vy; s.life -= 0.012;
+      });
+      shootingStars = shootingStars.filter(s =>
+        s.life > 0 && s.x > -50 && s.x < canvas.width + 50 && s.y < canvas.height + 50
+      );
+    }
+
     requestAnimationFrame(draw);
   }
+
+  function addRipple(x, y) {
+    ripples.push({ x, y, radius: 0, alpha: 0.9 });
+  }
+
   resize(); initStars(); draw();
   window.addEventListener('resize', () => { resize(); initStars(); });
+
+  // Réactivité au toucher / clic — onde douce dans le ciel
+  window.addEventListener('pointerdown', (e) => {
+    if (!reducedMotion) addRipple(e.clientX, e.clientY);
+  }, { passive: true });
 })();
 
 /* ════════════════════════════════════════
