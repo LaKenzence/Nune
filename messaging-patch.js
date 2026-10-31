@@ -5,57 +5,40 @@
    + reset identité
 ════════════════════════════════════════ */
 
-const USERS = {
-  kenzo: { name: "Kenzo", emoji: "✦",  color: "#f06292" },
-  nune:  { name: "Nune",  emoji: "🌙", color: "#ce93d8" },
-};
-
-console.log('patch chargé, _fb =', window._fb);
-
-/* ── Fix clé localStorage : supporte user-name ET chat-identity ── */
-function getCurrentUser() {
-  const v = localStorage.getItem('chat-identity') || localStorage.getItem('user-name');
-  return v ? v.toLowerCase() : null;
-}
-
-function getOtherUser(me) {
-  return me === 'kenzo' ? 'nune' : 'kenzo';
-}
+/* Qui est qui : profiles.js (PROFILES, Identity) */
+const getCurrentUser = () => Identity.get();
+const getOtherUser   = (me) => Identity.other(me);
 
 /* ════════════════════════════════════════
    CHOIX D'IDENTITÉ
+   L'onboarding (app.js) choisit le profil ; cet overlay ne sert que
+   si l'onboarding est déjà fait mais que le profil a été perdu.
 ════════════════════════════════════════ */
 function initIdentityPicker() {
   if (getCurrentUser()) {
     initMessaging();
     return;
   }
-  // Onboarding pas encore terminé → il gérera l'identité
-  // On attend sans afficher l'overlay
-  const waitForIdentity = setInterval(() => {
-    if (getCurrentUser()) {
-      clearInterval(waitForIdentity);
-      initMessaging();
-    }
-  }, 300);
-  // Fallback : si onboarding déjà fait mais identité perdue → overlay legacy
   if (localStorage.getItem('onboarding-done')) {
-    clearInterval(waitForIdentity);
-    const overlay = document.getElementById('identity-overlay');
-    if (overlay) overlay.classList.add('active');
+    document.getElementById('identity-overlay')?.classList.add('active');
   }
+  // Sinon l'onboarding appellera _initMessagingAfterOnboarding
 }
 
 function chooseIdentity(userId) {
-  localStorage.setItem('chat-identity', userId);
-  localStorage.setItem('user-name', userId.charAt(0).toUpperCase() + userId.slice(1));
+  // Garde un prénom personnalisé déjà saisi (ex. « Ma chérie »)
+  const current = localStorage.getItem('user-name');
+  const custom = current && !Object.values(PROFILES).some(p => p.name === current) ? current : '';
+  Identity.set(userId, custom);
   const overlay = document.getElementById('identity-overlay');
   if (overlay) {
     overlay.style.opacity = '0';
     overlay.style.transition = 'opacity 0.4s ease';
     setTimeout(() => overlay.classList.remove('active'), 400);
   }
-  showToast(`Bienvenue ${USERS[userId].name} ${USERS[userId].emoji}`);
+  const p = Identity.profile(userId);
+  showToast(`Bienvenue ${p.name} ${p.emoji}`);
+  if (typeof renderGreeting === 'function') renderGreeting();
   initMessaging();
 }
 
@@ -69,8 +52,7 @@ window._initMessagingAfterOnboarding = function() {
 ════════════════════════════════════════ */
 function resetIdentity() {
   if (!confirm('Changer de profil ?')) return;
-  localStorage.removeItem('chat-identity');
-  localStorage.removeItem('user-name');
+  Identity.clear();
   localStorage.removeItem('onboarding-done');
   window.location.reload();
 }
@@ -81,6 +63,7 @@ window.resetIdentity = resetIdentity;
 ════════════════════════════════════════ */
 let unsubscribeMessages = null;
 let swRegistration      = null;
+let messagingStarted    = false;
 
 async function initMessaging() {
   if (!window._fb) {
@@ -90,6 +73,10 @@ async function initMessaging() {
 
   const me = getCurrentUser();
   if (!me) return;
+
+  // Peut être appelé par l'onboarding ET au chargement : une seule fois
+  if (messagingStarted) return;
+  messagingStarted = true;
 
   // Les abonnements d'abord : ils ne doivent pas dépendre du service worker
   subscribeToMessages();
@@ -200,7 +187,7 @@ function subscribeToReactions() {
       // Notif si c'est une réaction à mon message (pas au chargement initial)
       if (!isFirstLoad && change.type === 'added' && data.from !== getCurrentUser()) {
         if (messagesById.get(data.msgId)?.from === getCurrentUser()) {
-          const user = USERS[data.from] || { name: data.from, emoji: '💌' };
+          const user = Identity.profile(data.from);
           notifyEvent(`${user.emoji} ${user.name} a réagi ${data.emoji} à ton message`);
         }
       }
@@ -413,7 +400,7 @@ function subscribeToMood() {
       // Ordre chronologique → la dernière humeur de l'autre gagne
       renderOtherMood(data);
       if (!isFirstLoad) {
-        const user = USERS[data.from] || { name: data.from, emoji: '💌' };
+        const user = Identity.profile(data.from);
         notifyEvent(`${user.emoji} ${user.name} est ${data.label} ${data.emoji} aujourd'hui`);
       }
     });
@@ -455,7 +442,7 @@ function showMoodPrompt() {
   overlay.setAttribute('aria-label', 'Ton humeur du jour');
 
   const me = getCurrentUser();
-  const user = me ? USERS[me] : null;
+  const user = me ? Identity.profile(me) : null;
 
   overlay.innerHTML = `
     <div class="mood-prompt-card">
@@ -509,9 +496,9 @@ window.submitMood = submitMood;
    NOTIFICATIONS
 ════════════════════════════════════════ */
 function notifyNewMessage(data) {
-  const user  = USERS[data.from] || { name: data.from, emoji: '💌' };
+  const user  = Identity.profile(data.from);
   const me    = getCurrentUser();
-  const other = me ? USERS[me] : null;
+  const other = me ? Identity.profile(me) : null;
 
   const intros = [
     `${user.emoji} un mot de ${user.name}`,
@@ -600,10 +587,6 @@ async function sendChatMessage() {
 /* ════════════════════════════════════════
    RENDU DES MESSAGES — fil de conversation
 ════════════════════════════════════════ */
-function getChatContainer() {
-  return document.getElementById('screen-chat-inner');
-}
-
 const messagesById = new Map();   // msgId → data
 let lastRendered   = null;        // { from, at, dayKey } du dernier message affiché
 let unreadCount    = 0;
@@ -722,7 +705,7 @@ window.onChatOpened = function() {
 
 function updateInputPlaceholder() {
   const me    = getCurrentUser();
-  const other = me ? USERS[getOtherUser(me)] : null;
+  const other = me ? Identity.profile(getOtherUser(me)) : null;
   if (!other) return;
   const input = document.getElementById('chat-input');
   if (input) input.placeholder = `écris à ${other.name}…`;
@@ -731,7 +714,7 @@ function updateInputPlaceholder() {
 
 function updateChatHeader() {
   const me    = getCurrentUser();
-  const other = me ? USERS[getOtherUser(me)] : null;
+  const other = me ? Identity.profile(getOtherUser(me)) : null;
   if (!other) return;
   const nameEl   = document.getElementById('msg-screen-name');
   const avatarEl = document.getElementById('msg-screen-avatar');
@@ -762,8 +745,7 @@ window.send = function() {
 ════════════════════════════════════════ */
 function waitForFirebase(callback, tries = 0) {
   if (window._fb) {
-    console.log('_fb trouvé après', tries * 100, 'ms');
-    callback();
+        callback();
   } else if (tries < 30) {
     setTimeout(() => waitForFirebase(callback, tries + 1), 100);
   } else {

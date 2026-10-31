@@ -5,11 +5,13 @@
 
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+importScripts('firebase-config.js');
 
 /* ── PWA CACHE ── */
-const CACHE_NAME = 'twenty-three-v4';
+const CACHE_NAME = 'twenty-three-v5';
 const ASSETS = [
   './', './index.html', './app.js', './style.css',
+  './firebase-config.js', './profiles.js',
   './firebase-messaging.js', './messaging-patch.js', './logo.svg',
 ];
 
@@ -56,14 +58,7 @@ self.addEventListener('fetch', (e) => {
    (functions/index.js) → elles arrivent même appli fermée
    ══════════════════════════════════════════ */
 
-firebase.initializeApp({
-  apiKey:            "AIzaSyB8DdHNzhb7GtLAn4q4-qVoxQozOxxwLv8",
-  authDomain:        "nune-576b9.firebaseapp.com",
-  projectId:         "nune-576b9",
-  storageBucket:     "nune-576b9.firebasestorage.app",
-  messagingSenderId: "475731736587",
-  appId:             "1:475731736587:web:6b03d532fa07a8cfd26f0e",
-});
+firebase.initializeApp(self.FIREBASE_CONFIG);
 
 /* Messages « data » uniquement : on construit la notification nous-mêmes */
 firebase.messaging().onBackgroundMessage((payload) => {

@@ -11,20 +11,9 @@ import {
 import { getMessaging, getToken, isSupported }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
-/* 🔧 Ta config Firebase */
-const firebaseConfig = {
-  apiKey:            "AIzaSyB8DdHNzhb7GtLAn4q4-qVoxQozOxxwLv8",
-  authDomain:        "nune-576b9.firebaseapp.com",
-  projectId:         "nune-576b9",
-  storageBucket:     "nune-576b9.firebasestorage.app",
-  messagingSenderId: "475731736587",
-  appId:             "1:475731736587:web:6b03d532fa07a8cfd26f0e",
-};
-
-/* 🔧 Clé VAPID : console Firebase → Paramètres du projet → Cloud Messaging
-   → « Certificats Web Push » → Générer. Colle la clé publique ici.
-   Tant qu'elle est vide, les notifications push sont désactivées. */
-const VAPID_KEY = "";
+/* Config et clé VAPID : firebase-config.js (partagé avec sw.js) */
+const firebaseConfig = window.FIREBASE_CONFIG;
+const VAPID_KEY      = window.FIREBASE_VAPID_KEY;
 
 /* Init */
 const firebaseApp = initializeApp(firebaseConfig);

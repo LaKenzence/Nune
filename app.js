@@ -344,19 +344,6 @@ const unlockMessages = [
   `23 signaux.\n\nEt chacun d'eux portait le même message :\nje suis là, je pense à toi,\net tu comptes énormément. 🌙`,
 ];
 
-const chatResponses = {
-  "hello|salut|hey|bonjour|coucou": { emoji: "💖", text: "Bonjour Nune… le signal t'attendait.", mood: "présence" },
-  "23": { emoji: "🔮", text: "Tu le remarques encore. Ce n'est pas anodin.", mood: "mystère" },
-  "amour|love|je t'aime|t'aime": { emoji: "💌", text: "Ce mot porte un signal très fort.", mood: "amour" },
-  "qui|who": { emoji: "✦", text: "Juste un système doux construit pour toi.", mood: "mystère" },
-  "triste|sad|mal|déprimée": { emoji: "🌙", text: "Ce n'est que temporaire. Tu es plus forte que ce soir.", mood: "sérénité" },
-  "belle|beautiful|jolie": { emoji: "🌸", text: "Le signal confirme : absolument.", mood: "douceur" },
-  "merci|thank": { emoji: "💛", text: "C'est toi le signal le plus fort ici.", mood: "lumière" },
-  "secret": { emoji: "🔒", text: "Tu as trouvé le mot. Tape ✦ pour aller plus loin.", mood: "mystère" },
-  "fatiguée|tired|épuisée": { emoji: "🌿", text: "Pose-toi. Tu as le droit de souffler.", mood: "repos" },
-  "manque|miss": { emoji: "💫", text: "La distance ne change rien à ce qui est réel.", mood: "connexion" },
-};
-
 const citations = [
   { text: "Il y a des gens qui éclairent la vie rien qu'en étant là.", author: "— pour toi" },
   { text: "Tu mérites un amour qui n'a pas peur de lui-même.", author: "— R. H. Sin" },
@@ -514,13 +501,14 @@ const ONBOARDING_STEPS = [
   },
   {
     visual: "💖",
-    title: "Comment tu\nveux qu'on t'appelle ?",
-    text: "Pour que les signaux soient vraiment pour toi.",
-    hasInput: true
+    title: "Qui es-tu ?",
+    text: "Pour que tes messages arrivent au bon endroit.",
+    hasProfile: true
   }
 ];
 
 let onboardingStep = 0;
+let onboardingProfile = null;
 
 function checkOnboarding() {
   if (!localStorage.getItem('onboarding-done')) {
@@ -539,16 +527,25 @@ function renderOnboardingStep(idx) {
       <div class="onboarding-visual" aria-hidden="true">${step.visual}</div>
       <div class="onboarding-title">${step.title.replace(/\n/g,'<br>')}</div>
       <div class="onboarding-text">${step.text.replace(/\n/g,'<br>')}</div>
-      ${step.hasInput ? `<input
-          class="onboarding-name-input"
-          id="onboarding-name"
-          type="text"
-          placeholder="ton prénom…"
-          maxlength="20"
-          autocomplete="off"
-          aria-label="Ton prénom"
-        >` : ''}
-      <button class="btn-onboarding" onclick="nextOnboardingStep()">
+      ${step.hasProfile ? `
+        <div class="onboarding-identity-btns" role="radiogroup" aria-label="Ton profil">
+          ${Object.entries(PROFILES).map(([id, p]) => `
+            <button class="onboarding-identity-btn${onboardingProfile === id ? ' selected' : ''}"
+              data-profile="${id}" role="radio" aria-checked="${onboardingProfile === id}"
+              onclick="pickOnboardingProfile('${id}')">
+              <span class="onboarding-identity-emoji" aria-hidden="true">${p.emoji}</span>${p.name}
+            </button>`).join('')}
+        </div>
+        <div class="onboarding-name-wrap${onboardingProfile ? ' visible' : ''}" id="onboarding-name-wrap">
+          <label class="onboarding-name-label" for="onboarding-name">comment on t'appelle ?</label>
+          <input class="onboarding-name-input" id="onboarding-name" type="text"
+            maxlength="20" autocomplete="off" placeholder="ton prénom…"
+            value="${onboardingProfile ? escapeHtml(PROFILES[onboardingProfile].name) : ''}"
+            onkeydown="if(event.key==='Enter')nextOnboardingStep()">
+        </div>
+      ` : ''}
+      <button class="btn-onboarding" id="onboarding-next" onclick="nextOnboardingStep()"
+        ${step.hasProfile && !onboardingProfile ? 'disabled' : ''}>
         ${idx < ONBOARDING_STEPS.length - 1 ? 'Continuer →' : 'Commencer ✦'}
       </button>
       ${idx > 0 ? `<button class="btn-onboarding ghost" onclick="renderOnboardingStep(${idx-1})">← Retour</button>` : ''}
@@ -562,13 +559,31 @@ function renderOnboardingStep(idx) {
   });
 }
 
+/* Choisir Kenzo ou Nune ; le prénom est pré-rempli et modifiable */
+function pickOnboardingProfile(id) {
+  const input = document.getElementById('onboarding-name');
+  const typed = input?.value.trim() || '';
+  // On ne remplace le prénom que s'il n'a pas été personnalisé
+  const isDefault = !typed || Object.values(PROFILES).some(p => p.name === typed);
+  onboardingProfile = id;
+
+  document.querySelectorAll('.onboarding-identity-btn').forEach(b => {
+    const on = b.dataset.profile === id;
+    b.classList.toggle('selected', on);
+    b.setAttribute('aria-checked', on);
+  });
+  document.getElementById('onboarding-name-wrap')?.classList.add('visible');
+  if (input && isDefault) input.value = PROFILES[id].name;
+  document.getElementById('onboarding-next')?.removeAttribute('disabled');
+  vibrate([10]);
+}
+
 function nextOnboardingStep() {
   if (onboardingStep === ONBOARDING_STEPS.length - 1) {
-    const nameInput = document.getElementById('onboarding-name');
-    if (nameInput && nameInput.value.trim()) {
-      localStorage.setItem('user-name', nameInput.value.trim());
-    }
+    if (!onboardingProfile) return;
+    Identity.set(onboardingProfile, document.getElementById('onboarding-name')?.value);
     finishOnboarding();
+    if (window._initMessagingAfterOnboarding) window._initMessagingAfterOnboarding();
   } else {
     renderOnboardingStep(onboardingStep + 1);
   }
@@ -585,8 +600,7 @@ function finishOnboarding() {
     ob.style.transition = '';
     spawnConfetti(50);
     renderGreeting();
-    const name = localStorage.getItem('user-name') || 'Nune';
-    showToast(`Bienvenue ${name} ✨`);
+    showToast(`Bienvenue ${Identity.displayName()} ${Identity.profile(Identity.get()).emoji}`);
   }, 500);
 }
 
@@ -790,7 +804,7 @@ function animateCard() {
 ════════════════════════════════════════ */
 function getTimeMessage() {
   const h = new Date().getHours();
-  const name = localStorage.getItem('user-name') || 'Nune';
+  const name = Identity.displayName() || 'Nune';
   if (h < 6)  return { emoji: "🌙", text: `Tu es encore debout… Le signal veille avec toi, ${name}.`, mood: "nuit" };
   if (h < 12) return { emoji: "☀️", text: `Bon matin ${name}. Une belle journée commence.`, mood: "douceur" };
   if (h < 18) return { emoji: "🌤️", text: `Bel après-midi. Le soleil t'a vue, ${name}.`, mood: "lumière" };
@@ -1028,23 +1042,6 @@ function closeUnlock() {
   // Rend le focus à la carte
   const card = document.getElementById('card');
   if (card) card.focus();
-}
-
-/* ════════════════════════════════════════
-   SEND (chat)
-════════════════════════════════════════ */
-function send() {
-  /*const val = document.getElementById('input').value.trim().toLowerCase();
-  if (!val) return;
-  vibrate([15]);
-  let match = null;
-  for (const [pattern, response] of Object.entries(chatResponses)) {
-    if (new RegExp(pattern).test(val)) { match = response; break; }
-  }
-  if (!match) match = { emoji: "🌙", text: "Je reçois ton signal… il voyage.", mood: "écoute" };
-  setCard(match);
-  addToHistory(match);
-  document.getElementById('input').value = "";*/
 }
 
 /* ════════════════════════════════════════
@@ -1351,7 +1348,7 @@ function renderGreeting() {
   const el = document.getElementById('home-greeting');
   if (!el) return;
   const h = new Date().getHours();
-  const name = localStorage.getItem('user-name') || '';
+  const name = Identity.displayName();
   const hello = h < 5 ? 'douce nuit' : h < 12 ? 'bonjour' : h < 18 ? 'bel après-midi' : 'bonsoir';
   el.textContent = name ? `${hello}, ${name.toLowerCase()}` : hello;
 }
@@ -1466,7 +1463,7 @@ async function uploadSharedPhoto(blob, caption) {
   // L'image complète d'abord : la miniature n'apparaît que quand tout est prêt
   await setDoc(doc(db, 'photo_full', ref.id), { data: full });
   await setDoc(ref, {
-    from: localStorage.getItem('chat-identity') || '',
+    from: Identity.get() || '',
     caption,
     thumb,
     createdAt: serverTimestamp(),
@@ -1589,7 +1586,7 @@ function closeLightbox() {
 }
 
 function photoMeta(p) {
-  const who = { kenzo: 'Kenzo ✦', nune: 'Nune 🌙' }[p.from] || '';
+  const who = PROFILES[p.from] ? `${PROFILES[p.from].name} ${PROFILES[p.from].emoji}` : '';
   const date = p.createdAt?.toDate
     ? p.createdAt.toDate().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
     : '';
@@ -1618,7 +1615,7 @@ function renderGallery(failed = false) {
       <button class="gallery-item" onclick="openSharedPhoto('${p.id}')" aria-label="${escapeHtml(p.caption || 'Photo souvenir')}">
         <img src="${p.thumb}" alt="" loading="lazy">
         ${p.caption ? `<div class="gallery-caption">${escapeHtml(p.caption)}</div>` : ''}
-        ${p.from ? `<span class="gallery-from" aria-hidden="true">${p.from === 'kenzo' ? '✦' : '🌙'}</span>` : ''}
+        ${PROFILES[p.from] ? `<span class="gallery-from" aria-hidden="true">${PROFILES[p.from].emoji}</span>` : ''}
       </button>
     `).join('');
   }

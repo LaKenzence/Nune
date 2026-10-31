@@ -22,6 +22,7 @@ initializeApp();
 
 const db = getFirestore();
 
+/* Même liste que profiles.js (le serveur ne peut pas charger le fichier du site) */
 const USERS = {
   kenzo: { name: "Kenzo", emoji: "✦" },
   nune:  { name: "Nune",  emoji: "🌙" },
