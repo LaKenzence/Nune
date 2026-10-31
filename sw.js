@@ -1,16 +1,16 @@
 /* ══════════════════════════════════════════
    sw.js — Service Worker
-   PWA cache + écoute Firestore en background
+   PWA cache + notifications push
    ══════════════════════════════════════════ */
 
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
 
 /* ── PWA CACHE ── */
-const CACHE_NAME = 'twenty-three-v2';
+const CACHE_NAME = 'twenty-three-v4';
 const ASSETS = [
   './', './index.html', './app.js', './style.css',
-  './firebase-messaging.js', './messaging-patch.js',
+  './firebase-messaging.js', './messaging-patch.js', './logo.svg',
 ];
 
 self.addEventListener('install', (e) => {
@@ -28,113 +28,63 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+/* Réseau d'abord (les mises à jour arrivent tout de suite),
+   cache en secours quand on est hors ligne */
 self.addEventListener('fetch', (e) => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  if (new URL(req.url).origin !== self.location.origin) return;
+  // Les mp3 sont lus par plages (206) : on les laisse au navigateur
+  if (req.destination === 'audio' || req.headers.has('range')) return;
+
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
+    fetch(req)
+      .then((res) => {
+        if (res.ok && res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(req, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(req))
   );
 });
 
 /* ══════════════════════════════════════════
-   FIRESTORE EN BACKGROUND
-   Le SW écoute les messages même app fermée
+   PUSH (Firebase Cloud Messaging)
+   Les notifications sont envoyées par la Cloud Function
+   (functions/index.js) → elles arrivent même appli fermée
    ══════════════════════════════════════════ */
 
-const FIREBASE_CONFIG = {
+firebase.initializeApp({
   apiKey:            "AIzaSyB8DdHNzhb7GtLAn4q4-qVoxQozOxxwLv8",
   authDomain:        "nune-576b9.firebaseapp.com",
   projectId:         "nune-576b9",
   storageBucket:     "nune-576b9.firebasestorage.app",
   messagingSenderId: "475731736587",
   appId:             "1:475731736587:web:6b03d532fa07a8cfd26f0e",
-};
+});
 
-const USERS = {
-  kenzo: { name: 'Kenzo', emoji: '✦' },
-  nune:  { name: 'Nune',  emoji: '🌙' },
-};
-
-let swDb          = null;
-let swCurrentUser = null;
-let swUnsubscribe = null;
-let swSeenIds     = new Set();
-let swFirstLoad   = true;
-
-function initSwFirestore(identity) {
-  // Déjà init pour ce user → rien à faire
-  if (swDb && swCurrentUser === identity) return;
-
-  swCurrentUser = identity;
-
-  if (!self.firebase.apps.length) {
-    self.firebase.initializeApp(FIREBASE_CONFIG);
-  }
-  swDb = self.firebase.firestore();
-
-  startListening();
-}
-
-function startListening() {
-  if (swUnsubscribe) {
-    swUnsubscribe();
-    swUnsubscribe = null;
-  }
-
-  swFirstLoad = true;
-
-  const q = swDb.collection('messages').orderBy('createdAt', 'asc');
-
-  swUnsubscribe = q.onSnapshot((snapshot) => {
-    snapshot.docChanges().forEach((change) => {
-      if (change.type !== 'added') return;
-
-      const id   = change.doc.id;
-      const data = change.doc.data();
-
-      if (swSeenIds.has(id)) return;
-      swSeenIds.add(id);
-
-      // Ignore le chargement initial et les messages qu'on a envoyés
-      if (!swFirstLoad && data.from && data.from !== swCurrentUser) {
-        showSwNotification(data);
-      }
-    });
-
-    swFirstLoad = false;
-
-  }, (err) => {
-    console.error('[SW] Firestore error:', err);
-  });
-}
-
-function showSwNotification(data) {
-  const user  = USERS[data.from] || { name: data.from, emoji: '💌' };
-  const title = `${user.emoji} ${user.name} t'a écrit 💌`;
-  const body  = data.text
-    ? (data.text.length > 80 ? data.text.slice(0, 80) + '…' : data.text)
-    : '';
-
-  self.registration.showNotification(title, {
-    body,
-    icon:     '/manifest.json',
-    tag:      'twenty-three-msg',
+/* Messages « data » uniquement : on construit la notification nous-mêmes */
+firebase.messaging().onBackgroundMessage((payload) => {
+  const d = payload.data || {};
+  return self.registration.showNotification(d.title || "Twenty Three ✦", {
+    body:     d.body || "",
+    icon:     "logo.svg",
+    badge:    "logo.svg",
+    tag:      d.tag || "twenty-three",
     renotify: true,
-    data:     { url: self.location.origin },
+    data:     { url: self.registration.scope },
   });
-}
+});
 
-/* ── Messages reçus depuis l'app ── */
-self.addEventListener('message', (e) => {
-  // L'app nous dit qui est connecté → on démarre l'écoute Firestore
-  if (e.data?.type === 'INIT_IDENTITY') {
-    initSwFirestore(e.data.identity);
-  }
-
-  // Notification directe (foreground/background depuis l'app)
-  if (e.data?.type === 'SHOW_NOTIFICATION') {
+/* ── Notification demandée par l'app (si le push n'est pas configuré) ── */
+self.addEventListener("message", (e) => {
+  if (e.data?.type === "SHOW_NOTIFICATION") {
     self.registration.showNotification(e.data.title, {
       body:     e.data.body,
-      icon:     '/manifest.json',
-      tag:      'twenty-three-msg',
+      icon:     "logo.svg",
+      tag:      "twenty-three-msg",
       renotify: true,
     });
   }
@@ -146,11 +96,11 @@ self.addEventListener('notificationclick', (e) => {
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const client of list) {
-        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
+        if (client.url.startsWith(self.registration.scope) && 'focus' in client) {
           return client.focus();
         }
       }
-      return clients.openWindow(self.location.origin);
+      return clients.openWindow(self.registration.scope);
     })
   );
 });

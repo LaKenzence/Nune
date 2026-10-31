@@ -91,73 +91,86 @@ async function initMessaging() {
   const me = getCurrentUser();
   if (!me) return;
 
-  if ('serviceWorker' in navigator) {
-    try {
-      swRegistration = await navigator.serviceWorker.ready;
-      if (swRegistration.active) {
-        swRegistration.active.postMessage({ type: 'INIT_IDENTITY', identity: me });
-      }
-    } catch (e) {
-      console.warn('SW non disponible :', e);
-    }
-  }
-
-  await requestNotificationPermission();
+  // Les abonnements d'abord : ils ne doivent pas dépendre du service worker
   subscribeToMessages();
   subscribeToReactions();
   subscribeToSharedSignal();
   subscribeToMood();
   updateInputPlaceholder();
   checkMoodPrompt();
-}
 
-async function requestNotificationPermission() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') {
-    const perm = await Notification.requestPermission();
-    if (perm === 'granted') {
-      showToast("Notifications activées 💌");
-      if (swRegistration?.active) {
-        swRegistration.active.postMessage({
-          type: 'INIT_IDENTITY',
-          identity: getCurrentUser()
-        });
-      }
+  if ('serviceWorker' in navigator) {
+    try {
+      swRegistration = await navigator.serviceWorker.ready;
+    } catch (e) {
+      console.warn('SW non disponible :', e);
     }
   }
+
+  // La permission est demandée via la bannière (iOS exige un geste utilisateur) ;
+  // si elle est déjà accordée on rafraîchit le jeton push de cet appareil
+  if ('Notification' in window && Notification.permission === 'granted') registerPush();
 }
+
+/* ════════════════════════════════════════
+   PUSH (FCM) — les notifications arrivent même appli fermée
+   Le jeton de cet appareil est rangé dans push_tokens/{token} ;
+   la Cloud Function (functions/index.js) envoie les notifications.
+════════════════════════════════════════ */
+async function registerPush() {
+  const me = getCurrentUser();
+  if (!me || !window._fb?.getPushToken) return false;
+  try {
+    const reg = swRegistration || await navigator.serviceWorker.ready;
+    const token = await window._fb.getPushToken(reg);
+    if (!token) return false;
+    const { db, doc, setDoc, serverTimestamp } = window._fb;
+    await setDoc(doc(db, 'push_tokens', token), {
+      user: me,
+      updatedAt: serverTimestamp(),
+    });
+    localStorage.setItem('push-enabled', '1');
+    return true;
+  } catch (e) {
+    console.warn('Push indisponible :', e);
+    return false;
+  }
+}
+window.registerPush = registerPush;
 
 /* ── Écoute messages ── */
 function subscribeToMessages() {
   if (!window._fb) return;
-  const { db, collection, onSnapshot, query, orderBy } = window._fb;
+  const { db, collection, onSnapshot, query, orderBy, limitToLast } = window._fb;
 
   if (unsubscribeMessages) unsubscribeMessages();
 
-  const q = query(collection(db, "messages"), orderBy("createdAt", "asc"));
+  const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limitToLast(50));
 
   let isFirstLoad = true;
   const seenIds   = new Set();
 
   unsubscribeMessages = onSnapshot(q, (snapshot) => {
     snapshot.docChanges().forEach((change) => {
-      if (change.type !== "added") return;
-
       const msgId = change.doc.id;
       const data  = change.doc.data();
+
+      if (change.type === "modified") { updateMessageTime(data, msgId); return; }
+      if (change.type !== "added") return;
 
       if (seenIds.has(msgId)) return;
       seenIds.add(msgId);
 
-      renderMessage(data, msgId);
+      renderMessage(data, msgId, !isFirstLoad);
 
       if (!isFirstLoad && data.from !== getCurrentUser()) {
         notifyNewMessage(data);
+        bumpUnread();
       }
     });
 
+    if (isFirstLoad) scrollChatToBottom();
     isFirstLoad = false;
-    scrollChatToBottom();
 
   }, (err) => console.error('Firestore error :', err));
 }
@@ -167,46 +180,57 @@ function subscribeToMessages() {
 ════════════════════════════════════════ */
 const REACTION_EMOJIS = ['❤️', '😍', '🥺', '✨', '😂', '🫂'];
 
+/* msgId → Set d'emojis, pour réafficher les bonnes réactions quand le message change */
+const reactionsByMsg = new Map();
+
 function subscribeToReactions() {
   if (!window._fb) return;
-  const { db, collection, onSnapshot } = window._fb;
+  const { db, collection, onSnapshot, query, orderBy, limitToLast } = window._fb;
 
-  onSnapshot(collection(db, "reactions"), (snapshot) => {
+  const q = query(collection(db, "reactions"), orderBy("createdAt", "asc"), limitToLast(100));
+  let isFirstLoad = true;
+
+  onSnapshot(q, (snapshot) => {
     snapshot.docChanges().forEach((change) => {
+      if (change.type === 'removed') return;
       const data = change.doc.data();
       const msgId = data.msgId;
       updateReactionDisplay(msgId, data.emoji, data.from);
 
-      // Notif si c'est une réaction à mon message
-      if (change.type === 'added' && data.from !== getCurrentUser()) {
-        if (_lastMyMsg && _lastMyMsg.msgId === data.msgId) {
+      // Notif si c'est une réaction à mon message (pas au chargement initial)
+      if (!isFirstLoad && change.type === 'added' && data.from !== getCurrentUser()) {
+        if (messagesById.get(data.msgId)?.from === getCurrentUser()) {
           const user = USERS[data.from] || { name: data.from, emoji: '💌' };
           notifyEvent(`${user.emoji} ${user.name} a réagi ${data.emoji} à ton message`);
         }
       }
     });
+    isFirstLoad = false;
   });
 }
 
 function updateReactionDisplay(msgId, emoji, from) {
-  // Nouveau layout : on affiche sur la carte si c'est le message courant
-  const card = document.getElementById('msg-card');
-  if (!card || card.dataset.msgId !== msgId) return;
+  if (!reactionsByMsg.has(msgId)) reactionsByMsg.set(msgId, new Set());
+  reactionsByMsg.get(msgId).add(emoji);
 
-  const el = document.getElementById('msg-reactions');
+  const el = document.querySelector(`[data-msg-id="${msgId}"] .bubble-reactions`);
   if (!el) return;
+  const badge = addReactionBadge(el, emoji);
+  badge.classList.remove('msg-reaction-pop');
+  void badge.offsetWidth;
+  badge.classList.add('msg-reaction-pop');
+}
 
+function addReactionBadge(el, emoji) {
   let badge = el.querySelector(`[data-emoji="${emoji}"]`);
   if (!badge) {
     badge = document.createElement('span');
     badge.dataset.emoji = emoji;
     badge.className = 'msg-reaction-badge';
+    badge.textContent = emoji;
     el.appendChild(badge);
   }
-  badge.textContent = emoji;
-  badge.classList.remove('msg-reaction-pop');
-  void badge.offsetWidth;
-  badge.classList.add('msg-reaction-pop');
+  return badge;
 }
 
 function showReactionPicker(msgId) {
@@ -226,8 +250,10 @@ function showReactionPicker(msgId) {
     btn.textContent = emoji;
     btn.className = 'reaction-emoji-btn';
     btn.setAttribute('aria-label', `Réagir avec ${emoji}`);
-    btn.onclick = () => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
       sendReaction(msgId, emoji);
+      updateReactionDisplay(msgId, emoji, getCurrentUser());
       picker.remove();
     };
     picker.appendChild(btn);
@@ -263,23 +289,29 @@ async function sendReaction(msgId, emoji) {
 ════════════════════════════════════════ */
 let sharedSignalUnsubscribe = null;
 
+const SHARED_SIGNAL_WINDOW = 5 * 60 * 1000;
+const lastSignalAt = {};   // user → timestamp (ms) de son dernier signal
+let lastMatchAt = 0;
+
 function subscribeToSharedSignal() {
   if (!window._fb) return;
-  const { db, collection, onSnapshot, query, orderBy } = window._fb;
+  const { db, collection, onSnapshot, query, orderBy, limitToLast } = window._fb;
 
-  const q = query(collection(db, "shared_signals"), orderBy("createdAt", "desc"));
+  const q = query(collection(db, "shared_signals"), orderBy("createdAt", "asc"), limitToLast(20));
+  let isFirstLoad = true;
 
   sharedSignalUnsubscribe = onSnapshot(q, (snapshot) => {
     snapshot.docChanges().forEach((change) => {
       if (change.type !== 'added') return;
       const data = change.doc.data();
-      const me = getCurrentUser();
+      // createdAt est null tant que l'écriture locale n'est pas confirmée
+      const at = data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now();
+      lastSignalAt[data.from] = at;
 
-      // L'autre vient d'envoyer un signal → vérifie si on a aussi envoyé récemment
-      if (data.from !== me) {
-        checkSharedSignalMatch(data);
-      }
+      // Au chargement initial on mémorise seulement, sans déclencher de match
+      if (!isFirstLoad) checkSharedSignalMatch(data.from, at);
     });
+    isFirstLoad = false;
   });
 }
 
@@ -315,21 +347,17 @@ async function sendSharedSignal() {
 }
 window.sendSharedSignal = sendSharedSignal;
 
-async function checkSharedSignalMatch(otherSignal) {
-  if (!window._fb) return;
-  const me = getCurrentUser();
-  const { db, collection, query, orderBy } = window._fb;
-  // Vérifie si j'ai envoyé un signal dans les 5 dernières minutes
-  // On lit les derniers signaux de l'utilisateur courant
-  // Simple check : si le timestamp de l'autre est proche du dernier "envoyé" stocké localement
-  const myLastSignal = localStorage.getItem('my-last-shared-signal');
-  if (!myLastSignal) return;
-
-  const diff = Date.now() - parseInt(myLastSignal);
-  if (diff < 5 * 60 * 1000) {
-    // MATCH !
-    triggerSharedSignalMatch();
-  }
+/* Un nouveau signal vient d'arriver (de moi ou de l'autre) :
+   si l'autre personne en a envoyé un dans les 5 min, c'est un match — des deux côtés */
+function checkSharedSignalMatch(from, at) {
+  const partner = from === 'kenzo' ? 'nune' : 'kenzo';
+  const partnerAt = lastSignalAt[partner];
+  if (!partnerAt) return;
+  if (Math.abs(at - partnerAt) > SHARED_SIGNAL_WINDOW) return;
+  // Évite de célébrer deux fois le même match
+  if (Date.now() - lastMatchAt < SHARED_SIGNAL_WINDOW) return;
+  lastMatchAt = Date.now();
+  triggerSharedSignalMatch();
 }
 
 function triggerSharedSignalMatch() {
@@ -348,6 +376,7 @@ function triggerSharedSignalMatch() {
       <button class="shared-signal-close" onclick="this.closest('.shared-signal-overlay').remove()">Fermer ✨</button>
     </div>
   `;
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
   document.body.appendChild(overlay);
   if (typeof spawnConfetti === 'function') spawnConfetti(60);
 
@@ -359,49 +388,51 @@ function triggerSharedSignalMatch() {
    HUMEUR DU JOUR
 ════════════════════════════════════════ */
 const MOODS = [
-  { emoji: '🌟', label: 'Rayonnante' },
-  { emoji: '😴', label: 'Fatiguée' },
-  { emoji: '🥰', label: 'Amoureuse' },
-  { emoji: '😤', label: 'Énervée' },
-  { emoji: '🌧️', label: 'Mélancolique' },
-  { emoji: '✨', label: 'Bien' },
+  { emoji: '🌟', label: { nune: 'Rayonnante', kenzo: 'Rayonnant' } },
+  { emoji: '😴', label: { nune: 'Fatiguée',   kenzo: 'Fatigué' } },
+  { emoji: '🥰', label: { nune: 'Amoureuse',  kenzo: 'Amoureux' } },
+  { emoji: '😤', label: { nune: 'Énervée',    kenzo: 'Énervé' } },
+  { emoji: '🌧️', label: { nune: 'Mélancolique', kenzo: 'Mélancolique' } },
+  { emoji: '✨', label: { nune: 'Bien',       kenzo: 'Bien' } },
 ];
 
 function subscribeToMood() {
   if (!window._fb) return;
-  const { db, collection, onSnapshot } = window._fb;
+  const { db, collection, onSnapshot, query, orderBy, limitToLast } = window._fb;
 
-  onSnapshot(collection(db, "moods"), (snapshot) => {
+  const q = query(collection(db, "moods"), orderBy("createdAt", "asc"), limitToLast(10));
+  let isFirstLoad = true;
+
+  onSnapshot(q, (snapshot) => {
+    const me = getCurrentUser();
     snapshot.docChanges().forEach((change) => {
+      if (change.type !== 'added') return;
       const data = change.doc.data();
-      const me = getCurrentUser();
+      if (data.from === me) return;
 
-      if (data.from !== me) {
-        // Humeur de l'autre → l'afficher dans l'UI
-        renderOtherMood(data);
-        if (change.type === 'added') {
-          const user = USERS[data.from] || { name: data.from, emoji: '💌' };
-          notifyEvent(`${user.emoji} ${user.name} est ${data.label} ${data.emoji} aujourd'hui`);
-        }
+      // Ordre chronologique → la dernière humeur de l'autre gagne
+      renderOtherMood(data);
+      if (!isFirstLoad) {
+        const user = USERS[data.from] || { name: data.from, emoji: '💌' };
+        notifyEvent(`${user.emoji} ${user.name} est ${data.label} ${data.emoji} aujourd'hui`);
       }
     });
+    isFirstLoad = false;
   });
 }
 
+/* L'humeur de l'autre s'affiche sous son nom, dans l'en-tête du chat */
 function renderOtherMood(data) {
-  const user = USERS[data.from] || { name: data.from, emoji: '💌' };
-  let el = document.getElementById('other-mood-display');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'other-mood-display';
-    el.className = 'other-mood-display';
-    const area = getChatContainer();
-    if (area) area.insertBefore(el, area.firstChild);
-  }
-  el.innerHTML = `<span class="other-mood-emoji">${data.emoji}</span><span>${user.name} est <strong>${data.label}</strong> aujourd'hui</span>`;
-  el.style.animation = 'none';
-  void el.offsetWidth;
-  el.style.animation = 'fadeSlideIn 0.4s ease';
+  const date = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+  const isToday = date.toDateString() === new Date().toDateString();
+  const when = isToday
+    ? "aujourd'hui"
+    : `le ${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
+
+  const el = document.getElementById('msg-screen-status');
+  if (!el) return;
+  el.innerHTML = `<span class="status-mood">${data.emoji}</span> ${escapeHtml(data.label || '').toLowerCase()} ${when}`;
+  el.classList.add('has-mood');
 }
 
 function checkMoodPrompt() {
@@ -431,16 +462,20 @@ function showMoodPrompt() {
       <div class="mood-prompt-title">Comment tu vas aujourd'hui ?</div>
       <div class="mood-prompt-sub">${user ? user.name : ''} ${user ? user.emoji : ''}</div>
       <div class="mood-grid">
-        ${MOODS.map(m => `
-          <button class="mood-option" onclick="submitMood('${m.emoji}', '${m.label}')" aria-label="${m.label}">
+        ${MOODS.map(m => {
+          const label = m.label[me] || m.label.nune;
+          return `
+          <button class="mood-option" onclick="submitMood('${m.emoji}', '${label}')" aria-label="${label}">
             <span class="mood-opt-emoji">${m.emoji}</span>
-            <span class="mood-opt-label">${m.label}</span>
+            <span class="mood-opt-label">${label}</span>
           </button>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
       <button class="mood-skip" onclick="document.getElementById('mood-prompt').remove()">Plus tard</button>
     </div>
   `;
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
   document.body.appendChild(overlay);
 }
 window.showMoodPrompt = showMoodPrompt;
@@ -496,7 +531,9 @@ function notifyNewMessage(data) {
     return;
   }
 
-  if (Notification.permission !== 'granted') return;
+  // Le serveur envoie déjà la notification push → pas de doublon
+  if (localStorage.getItem('push-enabled')) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
   const notifOptions = {
     body,
@@ -520,7 +557,8 @@ function notifyEvent(message) {
     return;
   }
 
-  if (Notification.permission !== 'granted') return;
+  if (localStorage.getItem('push-enabled')) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const title = 'Twenty Three ✦';
   if (swRegistration?.active) {
     swRegistration.active.postMessage({ type: 'SHOW_NOTIFICATION', title, body: message });
@@ -531,10 +569,7 @@ function notifyEvent(message) {
    ENVOI D'UN MESSAGE
 ════════════════════════════════════════ */
 function getActiveInput() {
-  // Retourne l'input visible : onglet chat en priorité
-  const chatInput = document.getElementById('chat-input');
-  if (chatInput && chatInput.offsetParent !== null) return chatInput;
-  return document.getElementById('input');
+  return document.getElementById('chat-input');
 }
 
 async function sendChatMessage() {
@@ -563,105 +598,127 @@ async function sendChatMessage() {
 }
 
 /* ════════════════════════════════════════
-   RENDU DES MESSAGES
+   RENDU DES MESSAGES — fil de conversation
 ════════════════════════════════════════ */
 function getChatContainer() {
-  return document.getElementById('chat-messages-area');
+  return document.getElementById('screen-chat-inner');
 }
 
-function scrollChatToBottom() { /* no-op */ }
+const messagesById = new Map();   // msgId → data
+let lastRendered   = null;        // { from, at, dayKey } du dernier message affiché
+let unreadCount    = 0;
 
-/* ── État local des derniers messages ── */
-let _lastTheirMsg  = null; // { data, msgId }
-let _lastMyMsg     = null;
+function msgDate(data) {
+  return data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+}
 
-function renderMessage(data, msgId) {
+function formatTime(date) {
+  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDay(date) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const d = new Date(date); d.setHours(0, 0, 0, 0);
+  const diff = Math.round((today - d) / 86400000);
+  if (diff === 0) return "aujourd'hui";
+  if (diff === 1) return 'hier';
+  return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function isNearBottom(el) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+}
+
+function scrollChatToBottom(smooth = false) {
+  const thread = document.getElementById('chat-thread');
+  if (!thread) return;
+  thread.scrollTo({ top: thread.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+}
+
+function renderMessage(data, msgId, animate = false) {
+  const thread = document.getElementById('chat-thread');
+  if (!thread) return;
+  messagesById.set(msgId, data);
+  document.getElementById('msg-empty-state')?.remove();
+
   const me   = getCurrentUser();
   const isMe = data.from === me;
+  const date = msgDate(data);
+  const dayKey = date.toDateString();
+  const stick = isNearBottom(thread);
 
-  if (isMe) {
-    _lastMyMsg = { data, msgId };
-    renderMyLast();
-  } else {
-    _lastTheirMsg = { data, msgId };
-    renderTheirLast();
+  // Séparateur de jour
+  if (!lastRendered || lastRendered.dayKey !== dayKey) {
+    const sep = document.createElement('div');
+    sep.className = 'chat-day';
+    sep.textContent = formatDay(date);
+    thread.appendChild(sep);
   }
-}
 
-function renderTheirLast() {
-  if (!_lastTheirMsg) return;
-  const { data, msgId } = _lastTheirMsg;
-  const user = USERS[data.from] || { name: data.from, emoji: '💌' };
-  const time = data.createdAt?.toDate
-    ? data.createdAt.toDate().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-    : '';
+  // Messages rapprochés du même auteur → regroupés
+  const grouped = lastRendered && lastRendered.from === data.from &&
+    lastRendered.dayKey === dayKey && (date - lastRendered.at) < 3 * 60 * 1000;
+  if (grouped) thread.lastElementChild?.classList.add('has-next');
 
-  const empty = document.getElementById('msg-empty-state');
-  const card  = document.getElementById('msg-card');
-  if (empty) empty.style.display = 'none';
-  if (card)  card.style.display  = '';
-
-  const fromEl = document.getElementById('msg-card-from');
-  const textEl = document.getElementById('msg-card-text');
-  const timeEl = document.getElementById('msg-card-time');
-  if (fromEl) fromEl.textContent = `${user.emoji} ${user.name}`;
-  if (textEl) textEl.textContent = data.text || '';
-  if (timeEl) timeEl.textContent = time;
-
-  card.dataset.msgId = msgId;
+  const row = document.createElement('div');
+  row.className = `bubble-row ${isMe ? 'me' : 'them'}${grouped ? ' grouped' : ''}${animate ? ' pop' : ''}`;
+  row.dataset.msgId = msgId;
+  // Pas d'espace entre les balises : la bulle est en white-space: pre-wrap
+  row.innerHTML =
+    `<div class="bubble"><span class="bubble-text"></span>` +
+    `<span class="bubble-time">${data.createdAt ? formatTime(date) : '•••'}</span></div>` +
+    `<div class="bubble-reactions"></div>`;
+  row.querySelector('.bubble-text').textContent = data.text || '';
+  row.querySelector('.bubble').addEventListener('click', (e) => {
+    e.stopPropagation();
+    showReactionPicker(msgId);
+  });
+  thread.appendChild(row);
   renderMsgReactions(msgId);
+
+  lastRendered = { from: data.from, at: date, dayKey };
+  if (isMe || stick) scrollChatToBottom(animate);
 }
 
-function renderMyLast() {
-  if (!_lastMyMsg) return;
-  const { data } = _lastMyMsg;
-  const time = data.createdAt?.toDate
-    ? data.createdAt.toDate().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-    : '';
-
-  const wrap   = document.getElementById('msg-my-last');
-  const textEl = document.getElementById('msg-my-text');
-  const timeEl = document.getElementById('msg-my-time');
-  if (wrap)   wrap.style.display   = '';
-  if (textEl) textEl.textContent   = data.text || '';
-  if (timeEl) timeEl.textContent   = time;
+/* L'heure arrive quand le serveur confirme l'envoi */
+function updateMessageTime(data, msgId) {
+  messagesById.set(msgId, data);
+  const timeEl = document.querySelector(`[data-msg-id="${msgId}"] .bubble-time`);
+  if (timeEl && data.createdAt) timeEl.textContent = formatTime(msgDate(data));
 }
 
 function renderMsgReactions(msgId) {
-  const el = document.getElementById('msg-reactions');
+  const el = document.querySelector(`[data-msg-id="${msgId}"] .bubble-reactions`);
   if (!el) return;
-  // les réactions existantes seront mises à jour via listenReactions
+  el.innerHTML = '';
+  (reactionsByMsg.get(msgId) || []).forEach(emoji => addReactionBadge(el, emoji));
 }
 
-function toggleMsgReactPicker() {
-  const picker = document.getElementById('msg-react-picker');
-  if (!picker) return;
-  picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
-}
-window.toggleMsgReactPicker = toggleMsgReactPicker;
-
-function pickMsgReaction(emoji) {
-  const card = document.getElementById('msg-card');
-  if (!card?.dataset.msgId) return;
-  sendReaction(card.dataset.msgId, emoji);
-  const picker = document.getElementById('msg-react-picker');
-  if (picker) picker.style.display = 'none';
-  // Feedback visuel immédiat
-  const el = document.getElementById('msg-reactions');
-  if (el) {
-    let span = el.querySelector(`[data-emoji="${emoji}"]`);
-    if (!span) {
-      span = document.createElement('span');
-      span.dataset.emoji = emoji;
-      span.className = 'msg-reaction-badge';
-      el.appendChild(span);
-    }
-    span.textContent = emoji;
-    span.classList.add('msg-reaction-pop');
-    setTimeout(() => span.classList.remove('msg-reaction-pop'), 400);
+/* Pastille de messages non lus sur l'onglet */
+function bumpUnread() {
+  if (typeof currentTabIndex !== 'undefined' && currentTabIndex === 1) return;
+  unreadCount++;
+  const tab = document.getElementById('tab-chat');
+  if (!tab) return;
+  let dot = tab.querySelector('.tab-badge');
+  if (!dot) {
+    dot = document.createElement('span');
+    dot.className = 'tab-badge';
+    tab.appendChild(dot);
   }
+  dot.textContent = unreadCount > 9 ? '9+' : unreadCount;
 }
-window.pickMsgReaction = pickMsgReaction;
+
+function clearUnread() {
+  unreadCount = 0;
+  document.querySelector('#tab-chat .tab-badge')?.remove();
+}
+
+/* Appelé par switchTab('chat') */
+window.onChatOpened = function() {
+  clearUnread();
+  requestAnimationFrame(() => scrollChatToBottom());
+};
 
 function updateInputPlaceholder() {
   const me    = getCurrentUser();
@@ -683,17 +740,9 @@ function updateChatHeader() {
 }
 
 function onThinkBtnClick() {
-  localStorage.setItem('my-last-shared-signal', Date.now().toString());
   sendSharedSignal();
 }
 window.onThinkBtnClick = onThinkBtnClick;
-
-function escapeHtml(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
 
 /* ════════════════════════════════════════
    OVERRIDE DE send()

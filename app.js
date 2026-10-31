@@ -145,6 +145,13 @@ function switchTab(name, idx) {
     d.setAttribute('aria-label', `Aller à ${TABS[i]}`);
   });
 
+  const screenEl = document.getElementById('screen-' + name);
+  if (screenEl) {
+    screenEl.classList.remove('tab-enter');
+    void screenEl.offsetWidth;
+    screenEl.classList.add('tab-enter');
+  }
+
   if (name === 'more') renderMoreScreen();
   if (name === 'chat') renderChatScreen();
   if (navigator.vibrate) navigator.vibrate(8);
@@ -229,6 +236,8 @@ function pushScreen(name) {
   }
 
   navigationStack.push(name);
+  // Une entrée d'historique par sous-écran → le bouton retour Android/iOS revient en arrière
+  history.pushState({ app: '23signals', screen: name }, '');
 
   const screenEl = document.getElementById('screen-' + name);
   if (!screenEl) return;
@@ -440,7 +449,7 @@ const THEMES = {
 
 let currentTheme = localStorage.getItem('app-theme') || 'violet';
 
-function applyTheme(id) {
+function applyTheme(id, silent = false) {
   const t = THEMES[id];
   if (!t) return;
   const root = document.documentElement;
@@ -453,7 +462,8 @@ function applyTheme(id) {
   currentTheme = id;
   localStorage.setItem('app-theme', id);
   renderThemePicker();
-  showToast(`${t.icon} ${t.name}`);
+  if (typeof renderMoreTiles === 'function' && typeof signalHistory !== 'undefined') renderMoreTiles();
+  if (!silent) showToast(`${t.icon} ${t.name}`);
 }
 
 function renderThemePicker() {
@@ -572,6 +582,7 @@ function finishOnboarding() {
     ob.style.opacity = '';
     ob.style.transition = '';
     spawnConfetti(50);
+    renderGreeting();
     const identity = localStorage.getItem('chat-identity');
     const names = { kenzo: 'Kenzo ✦', nune: 'Nune 🌙' };
     showToast(`Bienvenue ${names[identity] || ''} ✨`);
@@ -823,7 +834,7 @@ function renderHistory() {
     <div class="history-item">
       <div class="history-emoji" aria-hidden="true">${s.emoji}</div>
       <div class="history-body">
-        <div class="history-text">${s.text}</div>
+        <div class="history-text">${escapeHtml(s.text)}</div>
         <div class="history-meta">${s.mood} · ${s.time}</div>
       </div>
     </div>
@@ -842,6 +853,7 @@ function tap(e) {
   updateRing();
 
   const card = document.getElementById('card');
+  card.classList.remove('card-idle');
   if (e) spawnRipple(e, card);
   const rect = card.getBoundingClientRect();
   spawnParticles(rect.left + rect.width/2, rect.top + rect.height/2);
@@ -1040,7 +1052,8 @@ function secretMode() {
    CHAT SCREEN
 ════════════════════════════════════════ */
 function renderChatScreen() {
-  // Mis à jour par messaging-patch via updateChatHeader()
+  // Le fil est géré par messaging-patch.js
+  if (window.onChatOpened) window.onChatOpened();
 }
 
 /* ════════════════════════════════════════
@@ -1051,6 +1064,36 @@ function renderMoreScreen() {
   renderCitation();
   renderThemePicker();
   renderPlaylist();
+  renderMoreTiles();
+  subscribeToPhotos();
+}
+
+/* Les tuiles du hub montrent un aperçu de ce qu'il y a derrière */
+function renderMoreTiles() {
+  const gBg  = document.getElementById('tile-gallery-bg');
+  const gSub = document.getElementById('tile-gallery-sub');
+  if (gBg && gSub) {
+    const last = sharedPhotos[0];
+    gBg.style.backgroundImage = last ? `url("${last.thumb}")` : '';
+    gBg.classList.toggle('has-photo', !!last);
+    gSub.textContent = sharedPhotos.length
+      ? `${sharedPhotos.length} souvenir${sharedPhotos.length > 1 ? 's' : ''} à deux`
+      : 'ajoute votre premier souvenir';
+  }
+
+  const next = getNextMoment();
+  const cBig = document.getElementById('tile-countdown-big');
+  const cSub = document.getElementById('tile-countdown-sub');
+  if (cBig && cSub) {
+    cBig.textContent = next ? (next.days === 0 ? '✨' : `J-${next.days}`) : '—';
+    cSub.textContent = next ? next.name : 'ajoute une date';
+  }
+
+  const hSub = document.getElementById('tile-history-sub');
+  if (hSub) hSub.textContent = `${signalHistory.length} signa${signalHistory.length > 1 ? 'ux' : 'l'} reçu${signalHistory.length > 1 ? 's' : ''}`;
+
+  const tSub = document.getElementById('tile-theme-sub');
+  if (tSub && THEMES[currentTheme]) tSub.textContent = `${THEMES[currentTheme].icon} ${THEMES[currentTheme].name}`;
 }
 
 /* ════════════════════════════════════════
@@ -1135,12 +1178,15 @@ function addCountdown() {
   document.getElementById('cd-name').value = '';
   document.getElementById('cd-date').value = '';
   renderCountdowns();
+  renderNextMoment();
   showToast("Date ajoutée 🗓");
 }
 
 function deleteCountdown(id) {
+  if (!confirm('Supprimer cette date ?')) return;
   saveCountdowns(getCountdowns().filter(c => c.id !== id));
   renderCountdowns();
+  renderNextMoment();
 }
 
 function getTimeLeft(dateStr) {
@@ -1180,10 +1226,57 @@ function checkTodayDates() {
   showToast(`${match.name} — c'est aujourd'hui ! 🎉`);
 }
 
+/* Le prochain moment important, affiché sur l'accueil */
+function getNextMoment() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return getCountdowns()
+    .map(c => ({ ...c, days: Math.round((new Date(c.date + 'T00:00:00') - today) / 86400000) }))
+    .filter(c => c.days >= 0)
+    .sort((a, b) => a.days - b.days)[0] || null;
+}
+
+function renderNextMoment() {
+  const el = document.getElementById('next-moment');
+  if (!el) return;
+  const next = getNextMoment();
+  if (!next) { el.style.display = 'none'; return; }
+  const big  = next.days === 0 ? '✨' : next.days;
+  const unit = next.days === 0 ? "aujourd'hui" : next.days === 1 ? 'jour' : 'jours';
+  const date = new Date(next.date + 'T00:00:00')
+    .toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  el.innerHTML = `
+    <div class="moment-days"><strong>${big}</strong><span>${unit}</span></div>
+    <div class="moment-body">
+      <div class="moment-label">prochain moment</div>
+      <div class="moment-name">${escapeHtml(next.name)}</div>
+      <div class="moment-date">${date}</div>
+    </div>
+    <span class="moment-arrow" aria-hidden="true">›</span>
+  `;
+  el.setAttribute('aria-label', `Prochain moment : ${next.name}, ${next.days === 0 ? "aujourd'hui" : 'dans ' + next.days + ' ' + unit}`);
+  el.style.display = '';
+}
+
+/* Salutation selon l'heure */
+function renderGreeting() {
+  const el = document.getElementById('home-greeting');
+  if (!el) return;
+  const h = new Date().getHours();
+  const name = localStorage.getItem('user-name') || '';
+  const hello = h < 5 ? 'douce nuit' : h < 12 ? 'bonjour' : h < 18 ? 'bel après-midi' : 'bonsoir';
+  el.textContent = name ? `${hello}, ${name.toLowerCase()}` : hello;
+}
+
 function closeBirthdayBanner() { document.getElementById('birthday-banner').classList.remove('show'); }
 
 function renderCountdowns() {
-  const list = getCountdowns();
+  // Les plus proches en premier, les dates passées à la fin
+  const list = getCountdowns().sort((a, b) => {
+    const ta = getTimeLeft(a.date), tb = getTimeLeft(b.date);
+    if (!ta !== !tb) return ta ? -1 : 1;
+    return a.date.localeCompare(b.date);
+  });
   const el = document.getElementById('countdown-list');
   if (!list.length) {
     el.innerHTML = '<div style="text-align:center;opacity:0.35;font-style:italic;font-size:14px;padding:30px 0" role="status">Aucune date encore…<br>Ajoute un moment important ✦</div>';
@@ -1196,15 +1289,15 @@ function renderCountdowns() {
     const parts = c.date?.split('-') || [];
     const isToday = parts.length === 3 && `${parts[1]}-${parts[2]}` === todayMD;
     if (!tl) {
-      return `<div class="countdown-card" role="article" aria-label="${c.name}">
-        <div class="countdown-card-top"><div class="countdown-name">${c.name}</div>
-        <button class="countdown-delete" onclick="deleteCountdown(${c.id})" aria-label="Supprimer ${c.name}">✕</button></div>
+      return `<div class="countdown-card" role="article" aria-label="${escapeHtml(c.name)}">
+        <div class="countdown-card-top"><div class="countdown-name">${escapeHtml(c.name)}</div>
+        <button class="countdown-delete" onclick="deleteCountdown(${c.id})" aria-label="Supprimer ${escapeHtml(c.name)}">✕</button></div>
         ${isToday ? `<div class="countdown-celebrate" role="status">🎉 C'est aujourd'hui ! 🎉</div>` : `<div class="countdown-past">Ce moment est passé ✨</div>`}
       </div>`;
     }
-    return `<div class="countdown-card" data-id="${c.id}" role="article" aria-label="${c.name} : ${tl.days} jours">
-      <div class="countdown-card-top"><div class="countdown-name">${c.name}</div>
-      <button class="countdown-delete" onclick="deleteCountdown(${c.id})" aria-label="Supprimer ${c.name}">✕</button></div>
+    return `<div class="countdown-card" data-id="${c.id}" role="article" aria-label="${escapeHtml(c.name)} : ${tl.days} jours">
+      <div class="countdown-card-top"><div class="countdown-name">${escapeHtml(c.name)}</div>
+      <button class="countdown-delete" onclick="deleteCountdown(${c.id})" aria-label="Supprimer ${escapeHtml(c.name)}">✕</button></div>
       <div class="countdown-units" aria-hidden="true">
         <div class="cd-unit"><div class="cd-num" id="cd-d-${c.id}">${tl.days}</div><div class="cd-label">jours</div></div>
         <div class="cd-unit"><div class="cd-num" id="cd-h-${c.id}">${String(tl.hours).padStart(2,'0')}</div><div class="cd-label">heures</div></div>
@@ -1232,115 +1325,229 @@ setInterval(() => {
 }, 1000);
 
 /* ════════════════════════════════════════
-   GALLERY — IndexedDB version
+   GALLERY — partagée via Firestore
+   photos/{id}      : miniature + légende (léger, chargé en liste)
+   photo_full/{id}  : image grande taille (chargée à l'ouverture)
 ════════════════════════════════════════ */
+const PHOTO_FULL_SIDE  = 1600;
+const PHOTO_THUMB_SIDE = 480;
+const PHOTO_MAX_BYTES  = 900 * 1024; // un document Firestore est limité à 1 Mo
+
+let sharedPhotos = [];
+let photosLoaded = false;
+let photosUnsubscribe = null;
+let lightboxPhotoId = null;
+
+/* Redimensionne + compresse en JPEG (dataURL) */
+function compressImage(blob, maxSide, quality) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image illisible')); };
+    img.src = url;
+  });
+}
+
+/* Baisse la qualité jusqu'à tenir dans un document Firestore */
+async function compressToFit(blob, maxSide) {
+  let side = maxSide;
+  let quality = 0.82;
+  for (let i = 0; i < 6; i++) {
+    const data = await compressImage(blob, side, quality);
+    if (data.length <= PHOTO_MAX_BYTES) return data;
+    quality = Math.max(0.5, quality - 0.1);
+    side = Math.round(side * 0.85);
+  }
+  throw new Error('Photo trop lourde même compressée');
+}
+
+async function uploadSharedPhoto(blob, caption) {
+  const { db, collection, doc, setDoc, serverTimestamp } = window._fb;
+  const full  = await compressToFit(blob, PHOTO_FULL_SIDE);
+  const thumb = await compressImage(blob, PHOTO_THUMB_SIDE, 0.7);
+  const ref = doc(collection(db, 'photos'));
+  // L'image complète d'abord : la miniature n'apparaît que quand tout est prêt
+  await setDoc(doc(db, 'photo_full', ref.id), { data: full });
+  await setDoc(ref, {
+    from: localStorage.getItem('chat-identity') || '',
+    caption,
+    thumb,
+    createdAt: serverTimestamp(),
+  });
+}
+
+function subscribeToPhotos() {
+  if (photosUnsubscribe || !window._fb) return;
+  const { db, collection, onSnapshot, query, orderBy } = window._fb;
+  photosUnsubscribe = onSnapshot(
+    query(collection(db, 'photos'), orderBy('createdAt', 'desc')),
+    (snapshot) => {
+      sharedPhotos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      photosLoaded = true;
+      if (document.getElementById('screen-gallery')?.classList.contains('slide-in')) renderGallery();
+      renderMoreTiles();
+    },
+    (err) => {
+      console.error('Erreur galerie :', err);
+      photosLoaded = true;
+      renderGallery(true);
+    }
+  );
+  migrateLocalPhotosToShared();
+}
+
+/* Les anciennes photos (stockées seulement sur ce téléphone) sont partagées une fois */
+async function migrateLocalPhotosToShared() {
+  if (localStorage.getItem('photos-shared-migrated')) return;
+  try {
+    const local = await dbGetAllPhotos();
+    for (const p of local) {
+      const blob = await (await fetch(p.src)).blob();
+      await uploadSharedPhoto(blob, p.caption || '');
+      await dbDeletePhoto(p.id);
+    }
+    localStorage.setItem('photos-shared-migrated', '1');
+    if (local.length) showToast(`${local.length} souvenir${local.length > 1 ? 's' : ''} partagé${local.length > 1 ? 's' : ''} 🌸`);
+  } catch (e) {
+    console.warn('Partage des anciennes photos échoué :', e);
+  }
+}
+
 async function handlePhotoUpload(event) {
   const file = event.target.files[0];
+  event.target.value = '';
   if (!file) return;
+  if (!window._fb) { showToast("Connexion impossible pour l'instant 🙁"); return; }
 
-  // Vérification taille (max 4MB pour laisser de la marge)
-  if (file.size > 4 * 1024 * 1024) {
-    showToast("Photo trop lourde (max 4 Mo) 🙁");
-    event.target.value = '';
-    return;
+  const label = document.querySelector('.gallery-upload');
+  const captionEl = document.getElementById('photo-caption');
+  const caption = captionEl?.value.trim() || '';
+  label?.classList.add('uploading');
+  if (label) label.textContent = 'Envoi du souvenir…';
+
+  try {
+    await uploadSharedPhoto(file, caption);
+    if (captionEl) captionEl.value = '';
+    showToast("Souvenir ajouté pour vous deux 🌸");
+    vibrate([15]);
+  } catch (err) {
+    console.error('Erreur ajout photo :', err);
+    showToast("Erreur lors de l'ajout 🙁");
+  } finally {
+    label?.classList.remove('uploading');
+    if (label) label.textContent = '+ Ajouter une photo';
   }
-
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    const caption = document.getElementById('photo-caption')?.value.trim() || '';
-    const photo = {
-      id: Date.now(),
-      src: e.target.result,
-      caption,
-      createdAt: Date.now()
-    };
-    try {
-      await dbAddPhoto(photo);
-      if (document.getElementById('photo-caption')) document.getElementById('photo-caption').value = '';
-      event.target.value = '';
-      renderGallery();
-      showToast("Photo ajoutée 🌸");
-    } catch (err) {
-      console.error('Erreur sauvegarde photo :', err);
-      showToast("Erreur lors de l'ajout 🙁");
-    }
-  };
-  reader.readAsDataURL(file);
 }
 
 async function deletePhoto(id) {
+  if (!confirm('Supprimer ce souvenir pour vous deux ?')) return;
+  const { db, doc, deleteDoc } = window._fb;
   try {
-    await dbDeletePhoto(id);
-    renderGallery();
-    showToast("Photo supprimée 🌙");
+    await deleteDoc(doc(db, 'photos', id));
+    await deleteDoc(doc(db, 'photo_full', id));
+    closeLightbox();
+    showToast("Souvenir supprimé 🌙");
   } catch (err) {
     console.error('Erreur suppression photo :', err);
+    showToast("Erreur lors de la suppression 🙁");
   }
 }
 
-function openLightbox(src, caption) {
+function openLightbox(src, caption, meta = '', photoId = null) {
   const lb = document.getElementById('lightbox');
-  document.getElementById('lightbox-img').src = src;
+  const img = document.getElementById('lightbox-img');
+  img.src = src;
   document.getElementById('lightbox-caption').textContent = caption || '';
+  document.getElementById('lightbox-meta').textContent = meta;
+  lightboxPhotoId = photoId;
+  document.getElementById('lightbox-delete').style.display = photoId ? '' : 'none';
   lb.classList.add('open');
   lb.setAttribute('role', 'dialog');
   lb.setAttribute('aria-modal', 'true');
   lb.setAttribute('aria-label', caption ? `Photo : ${caption}` : 'Photo agrandie');
-  // Focus le bouton fermer
-  setTimeout(() => {
-    const closeBtn = document.getElementById('lightbox-close');
-    if (closeBtn) closeBtn.focus();
-  }, 50);
+
+  // Miniature tout de suite, puis la version HD
+  if (photoId && window._fb) {
+    const { db, doc, getDoc } = window._fb;
+    getDoc(doc(db, 'photo_full', photoId)).then(snap => {
+      if (snap.exists() && lightboxPhotoId === photoId) img.src = snap.data().data;
+    }).catch(() => {});
+  }
+  setTimeout(() => document.getElementById('lightbox-close')?.focus(), 50);
+}
+
+function openSharedPhoto(id) {
+  const p = sharedPhotos.find(x => x.id === id);
+  if (!p) return;
+  openLightbox(p.thumb, p.caption, photoMeta(p), p.id);
+}
+
+function deleteLightboxPhoto() {
+  if (lightboxPhotoId) deletePhoto(lightboxPhotoId);
 }
 
 function closeLightbox() {
   document.getElementById('lightbox').classList.remove('open');
+  lightboxPhotoId = null;
 }
 
-async function renderGallery() {
+function photoMeta(p) {
+  const who = { kenzo: 'Kenzo ✦', nune: 'Nune 🌙' }[p.from] || '';
+  const date = p.createdAt?.toDate
+    ? p.createdAt.toDate().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+  return [who, date].filter(Boolean).join(' · ');
+}
+
+function renderGallery(failed = false) {
   const grid = document.getElementById('gallery-grid');
   if (!grid) return;
+  subscribeToPhotos();
 
-  grid.innerHTML = '<div class="gallery-loading" aria-live="polite">Chargement…</div>';
-
-  try {
-    const photos = await dbGetAllPhotos();
-    let html = '';
-
-    if (!photos.length) {
-      html += '<div class="gallery-empty" role="status">Aucune photo encore…<br>Ajoute vos souvenirs ici ✦</div>';
-    } else {
-      html += photos.map(p => {
-        const safeSrc = p.src.replace(/'/g, "\\'");
-        const safeCaption = (p.caption || '').replace(/'/g, "\\'");
-        return `
-          <div class="gallery-item" role="img" aria-label="${p.caption || 'Photo souvenir'}">
-            <img
-              src="${p.src}"
-              alt="${p.caption || 'Photo souvenir'}"
-              loading="lazy"
-              onclick="openLightbox('${safeSrc}', '${safeCaption}')"
-            >
-            <div class="gallery-caption">${p.caption || ''}</div>
-            <button
-              class="gallery-delete"
-              onclick="event.stopPropagation();deletePhoto(${p.id})"
-              aria-label="Supprimer cette photo${p.caption ? ' : ' + p.caption : ''}"
-            >✕</button>
-          </div>
-        `;
-      }).join('');
-    }
-
-    if (count < 23) {
-      html += `<div class="surprise-lock" aria-label="Photo surprise verrouillée jusqu'au signal 23"><span aria-hidden="true">🔒</span> Photo surprise au signal 23</div>`;
-    }
-
-    grid.innerHTML = html;
-  } catch (err) {
-    console.error('Erreur chargement galerie :', err);
+  if (failed) {
     grid.innerHTML = '<div class="gallery-empty" role="alert">Erreur de chargement 🙁</div>';
+    return;
   }
+  if (!photosLoaded) {
+    grid.innerHTML = '<div class="gallery-loading" aria-live="polite">Chargement des souvenirs…</div>';
+    return;
+  }
+
+  let html = '';
+  if (!sharedPhotos.length) {
+    html += '<div class="gallery-empty" role="status">Aucun souvenir encore…<br>Ajoute le premier ✦</div>';
+  } else {
+    html += sharedPhotos.map(p => `
+      <button class="gallery-item" onclick="openSharedPhoto('${p.id}')" aria-label="${escapeHtml(p.caption || 'Photo souvenir')}">
+        <img src="${p.thumb}" alt="" loading="lazy">
+        ${p.caption ? `<div class="gallery-caption">${escapeHtml(p.caption)}</div>` : ''}
+        ${p.from ? `<span class="gallery-from" aria-hidden="true">${p.from === 'kenzo' ? '✦' : '🌙'}</span>` : ''}
+      </button>
+    `).join('');
+  }
+
+  // Le compteur repart à 0 après le 23 → on se base sur le premier cycle terminé
+  if (!firstCycleDone) {
+    html += `<div class="surprise-lock" aria-label="Photo surprise verrouillée jusqu'au signal 23"><span aria-hidden="true">🔒</span> Photo surprise au signal 23</div>`;
+  } else if (SURPRISE_PHOTO_SRC) {
+    html += `
+      <button class="gallery-item" onclick="openLightbox('${SURPRISE_PHOTO_SRC}', 'photo surprise ✦')" aria-label="Photo surprise">
+        <img src="${SURPRISE_PHOTO_SRC}" alt="" loading="lazy">
+        <div class="gallery-caption">photo surprise ✦</div>
+      </button>
+    `;
+  }
+
+  grid.innerHTML = html;
 }
 
 /* ════════════════════════════════════════
@@ -1348,39 +1555,24 @@ async function renderGallery() {
 ════════════════════════════════════════ */
 function requestNotifPermission() {
   if (!('Notification' in window)) { showToast("Notifications non supportées 🙁"); return; }
-  Notification.requestPermission().then(perm => {
+  Notification.requestPermission().then(async perm => {
     if (perm === 'granted') {
       localStorage.setItem('notif-granted', '1');
       document.getElementById('notif-banner').classList.remove('show');
       showToast("Notifications activées 💌");
-      scheduleNotifications();
+      // Le signal du jour est envoyé par le serveur (functions/index.js)
+      if (window.registerPush) await window.registerPush();
     } else { showToast("Permission refusée 🙁"); }
   });
 }
 
-function scheduleNotifications() {
-  if (Notification.permission !== 'granted') return;
-  const name = localStorage.getItem('user-name') || 'Nune';
-  const messages = [
-    `Je pense à toi. ✦`,
-    `Un signal t'attend, ${name}. 💫`,
-    `Le 23 se souvient de toi. 🌙`,
-    `Quelqu'un t'envoie de la douceur. 💖`,
-    `Bonne journée ${name}. ✨`,
-  ];
-  const lastNotif = localStorage.getItem('last-notif-day');
-  const today = new Date().toDateString();
-  if (lastNotif !== today) {
-    setTimeout(() => {
-      if (Notification.permission === 'granted') {
-        new Notification("Twenty Three 💌", {
-          body: messages[Math.floor(Math.random() * messages.length)],
-          icon: "logo.svg",
-        });
-        localStorage.setItem('last-notif-day', today);
-      }
-    }, 3 * 60 * 60 * 1000);
-  }
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /* ════════════════════════════════════════
@@ -1394,8 +1586,8 @@ function initDailyBadge() {
   badge.setAttribute('role', 'button');
   badge.setAttribute('aria-label', `Signal du jour : ${sig.mood}. Appuie pour l'afficher.`);
   badge.setAttribute('tabindex', '0');
-  badge.onclick = () => { setCard(sig); addToHistory(sig); showToast("Signal du jour ✦"); vibrate([20]); };
-  badge.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') badge.onclick(); };
+  badge.onclick = (e) => { e?.stopPropagation(); setCard(sig); addToHistory(sig); showToast("Signal du jour ✦"); vibrate([20]); };
+  badge.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); badge.onclick(e); } };
 }
 
 function checkNotifBanner() {
@@ -1412,7 +1604,7 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 /* ════════════════════════════════════════
    INIT
 ════════════════════════════════════════ */
-applyTheme(currentTheme);
+applyTheme(currentTheme, true);
 
 /* Seed des dates importantes */
 (function seedDates() {
@@ -1464,14 +1656,13 @@ applyTheme(currentTheme);
 })();
 
 updateRing();
+renderGreeting();
+renderNextMoment();
+document.getElementById('screen-home')?.classList.add('tab-enter');
 initDailyBadge();
 checkNotifBanner();
 checkTodayDates();
 currentCitationIdx = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000) % citations.length;
-
-if (localStorage.getItem('notif-granted') && Notification.permission === 'granted') {
-  scheduleNotifications();
-}
 
 initSwipe();
 pushHistoryState();
