@@ -73,6 +73,19 @@ body {
   overflow-x: hidden;
   padding-bottom: 20px;
   -webkit-overflow-scrolling: touch;
+  transition: opacity 0.4s ease;
+}
+
+/* Légère respiration d'entrée quand un écran devient actif */
+.screen.active {
+  animation: screenEnter 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes screenEnter {
+  from { opacity: 0.4; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen.active { animation: none; }
 }
 
 /* Subscreens are outside swipe-wrapper */
@@ -297,10 +310,15 @@ body {
   position: relative;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.3s ease;
+  transition: transform 0.18s cubic-bezier(0.34,1.4,0.64,1), box-shadow 0.4s ease, border-color 0.4s ease;
   -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 0 0 rgba(240,98,146,0);
 }
-.card:active { transform: scale(0.97); }
+.card:active {
+  transform: scale(0.96);
+  box-shadow: 0 8px 40px rgba(240,98,146,0.18);
+  border-color: rgba(240,98,146,0.4);
+}
 .card::before {
   content: '';
   position: absolute;
@@ -312,14 +330,47 @@ body {
 }
 .card:hover::before { opacity: 1; }
 
+/* Halo doré tournant, très subtil, signature de l'app */
+.card::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(from 0deg,
+    transparent 0deg,
+    rgba(255,213,79,0.10) 60deg,
+    transparent 140deg,
+    rgba(240,98,146,0.10) 220deg,
+    transparent 300deg,
+    transparent 360deg);
+  animation: cardHaloSpin 14s linear infinite;
+  pointer-events: none;
+  opacity: 0.7;
+}
+@keyframes cardHaloSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card::after { animation: none; }
+}
+
 .card-text {
   font-family: 'Playfair Display', serif;
   font-size: 18px;
   line-height: 1.55;
   font-style: italic;
   color: var(--cream);
+  position: relative;
+  z-index: 1;
 }
-.card-emoji { font-size: 26px; margin-bottom: 10px; }
+.card-emoji {
+  font-size: 26px;
+  margin-bottom: 10px;
+  position: relative;
+  z-index: 1;
+  transition: transform 0.3s cubic-bezier(0.34,1.4,0.64,1);
+}
+.card:active .card-emoji { transform: scale(1.15) rotate(-6deg); }
 
 .ripple {
   position: absolute;
@@ -405,6 +456,20 @@ body {
 .btn.primary {
   background: linear-gradient(135deg, rgba(240,98,146,0.25), rgba(206,147,216,0.20));
   border-color: rgba(240,98,146,0.35);
+  position: relative;
+  box-shadow: 0 0 20px rgba(240,98,146,0.12);
+  animation: primaryGlow 3.5s ease-in-out infinite;
+}
+@keyframes primaryGlow {
+  0%, 100% { box-shadow: 0 0 16px rgba(240,98,146,0.10); }
+  50%      { box-shadow: 0 0 26px rgba(240,98,146,0.22); }
+}
+.btn.primary:active {
+  transform: scale(0.94);
+  background: linear-gradient(135deg, rgba(240,98,146,0.4), rgba(206,147,216,0.32));
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn.primary { animation: none; }
 }
 .secret-btn {
   width: 36px;
@@ -445,13 +510,15 @@ body {
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 
-/* ── UNLOCK SCREEN ── */
+/* ── UNLOCK SCREEN — le moment signature ── */
 #unlock-screen {
   display: none;
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: linear-gradient(135deg, #c2185b, #7b1fa2, #1a1033);
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 20%, rgba(255,213,79,0.16) 0%, transparent 60%),
+    linear-gradient(135deg, #c2185b, #7b1fa2, #1a1033);
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -464,7 +531,12 @@ body {
 
 @keyframes fadeIn { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: scale(1); } }
 
-.unlock-hearts { font-size: 48px; margin-bottom: 20px; animation: heartbeat 1.2s infinite; }
+.unlock-hearts {
+  font-size: 48px;
+  margin-bottom: 20px;
+  animation: heartbeat 1.2s infinite;
+  filter: drop-shadow(0 0 18px rgba(255,213,79,0.5));
+}
 @keyframes heartbeat {
   0%,100% { transform: scale(1); }
   50% { transform: scale(1.15); }
@@ -474,6 +546,10 @@ body {
   font-size: 26px;
   margin-bottom: 18px;
   line-height: 1.3;
+  background: linear-gradient(135deg, #fff 30%, #ffd54f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .unlock-msg {
   font-size: 16px;
@@ -488,10 +564,16 @@ body {
   height: 200px;
   border-radius: 20px;
   overflow: hidden;
-  border: 2px solid rgba(255,255,255,0.3);
+  border: 2px solid rgba(255,213,79,0.4);
   margin-bottom: 20px;
   display: none;
   position: relative;
+  box-shadow: 0 0 40px rgba(255,213,79,0.18), 0 10px 40px rgba(0,0,0,0.3);
+  animation: photoReveal 0.7s cubic-bezier(0.22,1,0.36,1) 0.2s both;
+}
+@keyframes photoReveal {
+  from { opacity: 0; transform: scale(0.85) rotate(-3deg); }
+  to   { opacity: 1; transform: scale(1) rotate(0deg); }
 }
 .unlock-photo-container.has-photo { display: block; }
 .unlock-photo-container img { width: 100%; height: 100%; object-fit: cover; }
@@ -509,13 +591,20 @@ body {
 .unlock-close {
   padding: 12px 28px;
   border-radius: 16px;
-  border: 2px solid rgba(255,255,255,0.4);
-  background: transparent;
+  border: 2px solid rgba(255,213,79,0.45);
+  background: rgba(255,213,79,0.08);
   color: white;
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, transform 0.15s;
+}
+.unlock-close:active { transform: scale(0.94); background: rgba(255,213,79,0.18); }
+
+@media (prefers-reduced-motion: reduce) {
+  .unlock-hearts { animation: none; }
+  .unlock-photo-container { animation: none; }
 }
 
 /* ── PARTICLES ── */
@@ -1140,39 +1229,21 @@ body {
   opacity: 0.75;
   max-width: 290px;
 }
-.onboarding-identity-btns {
-  display: flex;
-  gap: 14px;
-  margin: 8px 0 4px;
-}
-
-.onboarding-identity-btn {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 18px 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.05);
+.onboarding-name-input {
+  width: 100%;
+  max-width: 260px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(240,98,146,0.4);
+  background: rgba(255,255,255,0.06);
   color: var(--cream);
   font-family: 'Playfair Display', serif;
-  font-size: 17px;
+  font-size: 18px;
   font-style: italic;
-  cursor: pointer;
-  transition: all 0.2s;
-  letter-spacing: 0.03em;
+  text-align: center;
+  outline: none;
 }
-.onboarding-identity-btn span { font-size: 28px; font-style: normal; }
-.onboarding-identity-btn:hover {
-  background: rgba(240,98,146,0.15);
-  border-color: rgba(240,98,146,0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(240,98,146,0.2);
-}
-.onboarding-identity-btn:active { transform: scale(0.96); }
-
+.onboarding-name-input::placeholder { opacity: 0.3; }
 .onboarding-dots {
   display: flex;
   gap: 8px;
@@ -1318,16 +1389,31 @@ body {
   text-align: left;
   backdrop-filter: blur(10px);
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.2s, transform 0.12s;
+  transition: background 0.25s ease, transform 0.18s cubic-bezier(0.34,1.4,0.64,1), border-color 0.25s ease;
   width: 100%;
 }
-.more-nav-card:active { transform: scale(0.97); }
+.more-nav-card:active {
+  transform: scale(0.96);
+  background: rgba(240,98,146,0.10);
+  border-color: rgba(240,98,146,0.25);
+}
 .more-nav-card:hover { background: rgba(255,255,255,0.14); }
-.more-nav-icon { font-size: 24px; flex-shrink: 0; }
+.more-nav-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.34,1.4,0.64,1);
+}
+.more-nav-card:active .more-nav-icon { transform: scale(1.2) rotate(-8deg); }
 .more-nav-body { flex: 1; }
 .more-nav-title { font-size: 15px; font-weight: 500; }
 .more-nav-sub { font-size: 11px; opacity: 0.35; margin-top: 2px; letter-spacing: 0.06em; }
-.more-nav-arrow { font-size: 20px; opacity: 0.25; margin-left: auto; }
+.more-nav-arrow {
+  font-size: 20px;
+  opacity: 0.25;
+  margin-left: auto;
+  transition: transform 0.25s ease;
+}
+.more-nav-card:active .more-nav-arrow { transform: translateX(4px); opacity: 0.5; }
 
 /* ════════════════════════════════
    NAVIGATION — SUBSCREEN SLIDE
@@ -1571,7 +1657,6 @@ body {
   .swipe-wrapper {
     transition: none;
   }
-  
 }
 
 /* ────────────────────────────────────────
