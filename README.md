@@ -10,6 +10,16 @@ Une PWA (Progressive Web App) privée à deux personnes : un compagnon de couple
 - **Galerie partagée** — photos compressées dans le navigateur puis stockées dans Firestore, visibles sur les deux téléphones, avec légendes et lightbox.
 - **La Lettre** — page statique personnalisée.
 - **Lettres « ouvre quand… »** — lettres scellées écrites pour l'autre (« quand tu es triste », « quand je te manque »…), notifiées à l'ouverture.
+- **Question du jour** — la même pour vous deux ; on découvre la réponse de l'autre après avoir répondu.
+- **Bonjour / bonne nuit** — un bouton sur l'accueil, et le premier bonjour du matin part tout seul ; « dort depuis 23:40 » dans le chat.
+- **Bisou à distance** — appui long sur ✦ dans le chat : vibration en cœur et pluie de bisous chez l'autre.
+- **Messages vocaux** — bouton 🎙 dans le chat (1 minute max).
+- **Nous deux** — distance et mini-carte (position approximative, ~10 km, sur demande), météo chez l'autre, « ensemble depuis… » et « jours sans câlin ».
+- **Un jour dans le passé** — une photo ou un souvenir du bocal d'il y a un an (ou un mois) en puce sur l'accueil.
+- **Album du mois** — messages, bisous, photos, humeurs et message le plus aimé du mois.
+- **Le bocal** — des petits souvenirs qu'on glisse et qu'on pioche au hasard.
+- **Défi de la semaine**, **quiz « tu me connais ? »** et **dessin à deux** en direct.
+- **Installation guidée sur iPhone** et **sauvegarde complète** en un fichier .json.
 - **Présence** — « en ligne », « vu » sous le dernier message, et l'heure locale de l'autre quand vous n'êtes pas sur le même fuseau.
 - **Compte à rebours partagé** — anniversaires (récurrents chaque année) et événements, synchronisés entre les deux téléphones.
 - **Thèmes visuels** — plusieurs ambiances de couleurs.
@@ -26,6 +36,13 @@ Une PWA (Progressive Web App) privée à deux personnes : un compagnon de couple
 | `app.js` | Cœur de l'appli : signaux, ciel animé, galerie partagée, thèmes, comptes à rebours, citations, onboarding, navigation |
 | `messaging-patch.js` | Temps réel : fil de conversation, réactions, signal partagé, humeur du jour, enregistrement push |
 | `sw.js` | Service worker : cache (réseau d'abord) + affichage des notifications push |
+| `shared.js` | Outils communs aux modules (dates, écoute de collections, puces de l'accueil, pluie d'emojis) |
+| `daily.js` | Question du jour, bonjour / bonne nuit |
+| `together.js` | Bisou, position et distance, météo, « ensemble depuis » |
+| `voice.js` | Messages vocaux |
+| `memories.js` | Un jour dans le passé, album du mois, le bocal |
+| `play.js` | Défi de la semaine, quiz, dessin à deux |
+| `extras.js` | Installation guidée (iPhone / Android) et sauvegarde |
 | `presence.js` | Présence en ligne, accusé « vu », heure locale de l'autre |
 | `open-when.js` | Lettres « ouvre quand… » |
 | `firestore.rules` | Règles de sécurité Firestore (accès réservé à vos deux téléphones) |
@@ -36,8 +53,9 @@ Une PWA (Progressive Web App) privée à deux personnes : un compagnon de couple
 ## ⚙️ Architecture technique
  
 - **Stockage local** : `localStorage` (compteur de signaux, historique, thème, profil, comptes à rebours). Les anciennes photos IndexedDB sont partagées automatiquement à la première ouverture de la galerie.
-- **Backend temps réel** : Firebase Firestore. Collections : `messages`, `reactions`, `shared_signals`, `moods`, `photos` (miniatures), `photo_full` (images HD), `push_tokens` (un document par appareil), `presence`, `open_when`, `moments`, `members` (appareils autorisés) et `config/pairing` (code secret, illisible depuis l'appli).
+- **Backend temps réel** : Firebase Firestore. Collections : `messages`, `reactions`, `shared_signals`, `moods`, `photos` (miniatures), `photo_full` (images HD), `push_tokens` (un document par appareil), `presence`, `open_when`, `moments`, `voice`, `kisses`, `rituals`, `answers`, `couple`, `jar`, `challenges`, `quiz`, `drawing`, `members` (appareils autorisés) et `config/pairing` (code secret, illisible depuis l'appli).
 - **Identité** : deux profils fixes, `kenzo` et `nune` (`profiles.js`), choisis à l'onboarding avec un prénom libre pour l'affichage.
+- **Météo** : récupérée chez Open-Meteo (gratuit, sans clé) à partir de la position approximative de l'autre, seulement si elle est partagée.
 - **Push** : chaque appareil enregistre son jeton FCM dans `push_tokens` ; les Cloud Functions réagissent aux nouveaux documents et envoient la notification à l'autre personne.
 
 ## 🚀 Installation / déploiement

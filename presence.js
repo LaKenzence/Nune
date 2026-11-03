@@ -70,12 +70,20 @@
     if (!el) return;
     const active = toDate(otherPresence?.activeAt);
     const online = active && Date.now() - active < ONLINE_WINDOW;
+    // A dit « bonne nuit » il y a moins de 12 h et n'est pas revenu·e depuis
+    const night = window.lastRitualOf ? window.lastRitualOf(Identity.other()) : null;
+    const nightAt = night?.type === 'night' ? toDate(night.createdAt) : null;
+    const asleep = nightAt && Date.now() - nightAt < 12 * 3600 * 1000
+      && (!active || active - nightAt < 3 * 60 * 1000);
+
     const parts = [];
-    if (online) parts.push('<span class="status-dot" aria-hidden="true"></span>en ligne');
+    if (asleep) parts.push(`💤 dort depuis ${nightAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`);
+    else if (online) parts.push('<span class="status-dot" aria-hidden="true"></span>en ligne');
     else if (active) parts.push(`dernière visite ${relative(active)}`);
     else parts.push('en direct ✦');
     const time = theirTime(otherPresence?.tz);
     if (time) parts.push(`🕰 ${time}`);
+    if (window.otherWeather) parts.push(window.otherWeather);
     el.innerHTML = parts.join(' · ');
     el.classList.toggle('is-online', !!online);
   }
@@ -111,6 +119,8 @@
       otherPresence = snap.exists() ? snap.data() : null;
       renderStatus();
       renderSeen();
+      // together.js s'en sert pour la distance et la météo
+      window.dispatchEvent(new CustomEvent('nune:presence', { detail: otherPresence }));
     }, (err) => window.onFirestoreError && window.onFirestoreError(err));
 
     heartbeat();
@@ -119,6 +129,8 @@
     document.addEventListener('visibilitychange', () => { heartbeat(); markChatSeen(); });
 
     window.addEventListener('nune:chat-opened', markChatSeen);
+    window.addEventListener('nune:rituals', renderStatus);
+    window.addEventListener('nune:weather', renderStatus);
     window.addEventListener('nune:message', (e) => {
       if (e.detail.data.from !== me) markChatSeen();
       renderSeen();

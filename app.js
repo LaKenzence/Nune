@@ -222,6 +222,10 @@ function initSwipe() {
 ════════════════════════════════════════ */
 let navigationStack = [];
 
+/* Les modules (question.js, play.js…) déclarent ici le rendu de leur sous-écran */
+const SCREEN_RENDERERS = {};
+function registerScreen(name, render) { SCREEN_RENDERERS[name] = render; }
+
 function pushScreen(name) {
   const w = wrapper();
 
@@ -260,6 +264,7 @@ function pushScreen(name) {
   if (name === 'playlist')  renderPlaylist();
   if (name === 'themes')    renderThemePicker();
   if (name === 'openwhen' && window.renderOpenWhen) window.renderOpenWhen();
+  if (SCREEN_RENDERERS[name]) SCREEN_RENDERERS[name]();
 
   if (navigator.vibrate) navigator.vibrate(8);
 }
@@ -1566,6 +1571,7 @@ function subscribeToPhotos() {
       photosLoaded = true;
       if (document.getElementById('screen-gallery')?.classList.contains('slide-in')) renderGallery();
       renderMoreTiles();
+      window.dispatchEvent(new Event('nune:photos'));
     },
     (err) => {
       console.error('Erreur galerie :', err);

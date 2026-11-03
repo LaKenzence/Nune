@@ -619,7 +619,7 @@ function notifyNewMessage(data) {
   const title = intros[Math.floor(Math.random() * intros.length)];
   const body  = data.text
     ? (data.text.length > 80 ? data.text.slice(0, 80) + '…' : data.text)
-    : '✦';
+    : data.voiceId ? '🎤 message vocal' : '✦';
 
   vibrate([30, 20, 30]);
 
@@ -762,6 +762,7 @@ function renderMessage(data, msgId, animate = false) {
     `<span class="bubble-time">${data.createdAt ? formatTime(date) : '•••'}</span></div>` +
     `<div class="bubble-reactions"></div>`;
   row.querySelector('.bubble-text').textContent = data.text || '';
+  if (data.voiceId && window.renderVoiceBubble) window.renderVoiceBubble(row.querySelector('.bubble-text'), data);
   row.querySelector('.bubble').addEventListener('click', (e) => {
     e.stopPropagation();
     showReactionPicker(msgId);

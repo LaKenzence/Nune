@@ -37,7 +37,8 @@ service cloud.firestore {
     match /messages/{id} {
       allow read: if isMember();
       allow create: if isMember() && fromMe()
-        && data().text is string && data().text.size() <= 4000;
+        && data().text is string && data().text.size() <= 4000
+        && (!('voiceId' in data()) || data().voiceId is string);
     }
 
     match /reactions/{id} {
@@ -92,6 +93,62 @@ service cloud.firestore {
       allow create, update: if isMember() && fromMe()
         && data().name is string && data().name.size() <= 60
         && data().date is string && data().date.size() == 10;
+    }
+
+    /* Message vocal : l'audio (≤ 1 Mo) est à part du message */
+    match /voice/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && fromMe() && data().data is string && data().data.size() <= 1000000;
+    }
+
+    /* Bisous, bonjour / bonne nuit */
+    match /kisses/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && fromMe();
+    }
+    match /rituals/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && fromMe() && data().type in ['morning', 'night'];
+    }
+
+    /* Question du jour : un document par jour et par personne ("2026-11-03_nune") */
+    match /answers/{id} {
+      allow read: if isMember();
+      allow create, update: if isMember() && fromMe()
+        && id == data().day + '_' + myProfile()
+        && data().text is string && data().text.size() <= 2000;
+    }
+
+    /* Dates du couple (ensemble depuis…, dernière fois ensemble) */
+    match /couple/{doc} {
+      allow read, write: if isMember();
+    }
+
+    /* Bocal à souvenirs */
+    match /jar/{id} {
+      allow read, delete: if isMember();
+      allow create: if isMember() && fromMe() && data().text is string && data().text.size() <= 500;
+    }
+
+    /* Défi de la semaine : un document par semaine et par personne */
+    match /challenges/{id} {
+      allow read: if isMember();
+      allow create, update: if isMember() && fromMe() && id == data().week + '_' + myProfile();
+    }
+
+    /* Quiz « tu me connais ? » : l'autre ne peut que répondre */
+    match /quiz/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && fromMe() && data().answer == null;
+      allow update: if isMember() && resource.data.from != myProfile() && resource.data.answer == null
+        && onlyChanges(['answer', 'answeredAt']);
+      allow delete: if isMember() && resource.data.from == myProfile();
+    }
+
+    /* Tableau à dessin partagé */
+    match /drawing/{id} {
+      allow read, delete: if isMember();
+      allow create: if isMember() && fromMe() && data().points is list && data().points.size() <= 2000;
     }
   }
 }

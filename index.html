@@ -95,7 +95,10 @@
           <div class="home-greeting" id="home-greeting">bonsoir</div>
           <h1 class="home-title">Twenty Three</h1>
         </div>
-        <button class="secret-btn" onclick="secretMode()" title="✦" aria-label="Signal caché">✦</button>
+        <div class="home-top-btns">
+          <button class="secret-btn ritual-btn" id="ritual-btn" onclick="sendRitual()" aria-label="Dire bonne nuit">🌙</button>
+          <button class="secret-btn" onclick="secretMode()" title="✦" aria-label="Signal caché">✦</button>
+        </div>
       </header>
 
       <div class="notif-banner" id="notif-banner">
@@ -155,6 +158,8 @@
       </div>
 
       <button class="moment-card" id="next-moment" onclick="pushScreen('countdown')" style="display:none"></button>
+
+      <div class="home-chips" id="home-chips" aria-label="Aujourd'hui"></div>
     </div>
   </div>
 
@@ -200,6 +205,31 @@
       <div class="screen-sub">tout ce qui est à nous ✦</div>
     </div>
 
+    <div class="section-label">chaque jour</div>
+    <div class="tiles">
+      <button class="tile tile-wide tile-question" onclick="pushScreen('question')">
+        <span class="tile-icon">❓</span>
+        <div class="tile-content-row">
+          <div>
+            <div class="tile-title">Question du jour</div>
+            <div class="tile-sub" id="tile-question-sub">une question pour vous deux</div>
+          </div>
+          <span class="tile-badge" id="tile-question-badge" style="display:none">!</span>
+        </div>
+      </button>
+      <button class="tile" onclick="pushScreen('challenge')">
+        <span class="tile-icon">🎯</span>
+        <div class="tile-title">Défi de la semaine</div>
+        <div class="tile-sub" id="tile-challenge-sub">à relever à deux</div>
+      </button>
+      <button class="tile" onclick="pushScreen('quiz')">
+        <span class="tile-icon">🧠</span>
+        <div class="tile-title">Tu me connais ?</div>
+        <div class="tile-sub" id="tile-quiz-sub">le quiz à deux</div>
+      </button>
+    </div>
+
+    <div class="section-label">nos souvenirs</div>
     <div class="tiles">
       <button class="tile tile-wide tile-gallery" id="tile-gallery" onclick="pushScreen('gallery')">
         <div class="tile-bg" id="tile-gallery-bg"></div>
@@ -219,15 +249,39 @@
           <span class="tile-badge" id="tile-openwhen-badge" style="display:none"></span>
         </div>
       </button>
-      <button class="tile tile-letter" onclick="pushScreen('letter')">
+      <button class="tile" onclick="pushScreen('jar')">
+        <span class="tile-icon">🫙</span>
+        <div class="tile-title">Le bocal</div>
+        <div class="tile-sub" id="tile-jar-sub">nos petits souvenirs</div>
+      </button>
+      <button class="tile" onclick="pushScreen('recap')">
+        <span class="tile-icon">🗞</span>
+        <div class="tile-title">Album du mois</div>
+        <div class="tile-sub" id="tile-recap-sub">votre mois en bref</div>
+      </button>
+      <button class="tile tile-wide tile-letter" onclick="pushScreen('letter')">
         <span class="tile-icon">💌</span>
         <div class="tile-title">La Lettre</div>
         <div class="tile-quote">« Well, Well, Well… »</div>
+      </button>
+    </div>
+
+    <div class="section-label">nous deux</div>
+    <div class="tiles">
+      <button class="tile tile-wide tile-nous" onclick="pushScreen('nous')">
+        <div class="tile-big" id="tile-nous-big">—</div>
+        <div class="tile-title">Nous deux</div>
+        <div class="tile-sub" id="tile-nous-sub">distance, dates, météo</div>
       </button>
       <button class="tile tile-countdown" onclick="pushScreen('countdown')">
         <div class="tile-big" id="tile-countdown-big">—</div>
         <div class="tile-title">Compte à rebours</div>
         <div class="tile-sub" id="tile-countdown-sub">les moments importants</div>
+      </button>
+      <button class="tile" onclick="pushScreen('draw')">
+        <span class="tile-icon">🎨</span>
+        <div class="tile-title">Dessin à deux</div>
+        <div class="tile-sub">un tableau partagé</div>
       </button>
       <button class="tile" onclick="pushScreen('playlist')">
         <span class="tile-icon">🎵</span>
@@ -269,6 +323,7 @@
       <div class="music-ambiance-grid" id="ambiance-grid"></div>
     </div>
 
+    <button class="backup-btn" onclick="exportBackup()">💾 sauvegarder tous nos souvenirs</button>
     <button class="profile-link" onclick="resetIdentity()">changer de profil</button>
   </div>
 
@@ -339,6 +394,78 @@
     </div>
   </div>
   <div class="ow-wrap" id="openwhen-content"></div>
+</div>
+
+<!-- ════════ MODULES (sous-écrans remplis par leur fichier .js) ════════ -->
+<div class="screen subscreen" id="screen-question">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="history.back()" aria-label="Retour">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Question du jour</div>
+      <div class="subscreen-sub">on répond, puis on découvre</div>
+    </div>
+  </div>
+  <div class="fw" id="question-content"></div>
+</div>
+<div class="screen subscreen" id="screen-challenge">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="history.back()" aria-label="Retour">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Défi de la semaine</div>
+      <div class="subscreen-sub">à relever chacun de son côté</div>
+    </div>
+  </div>
+  <div class="fw" id="challenge-content"></div>
+</div>
+<div class="screen subscreen" id="screen-quiz">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="history.back()" aria-label="Retour">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Tu me connais ?</div>
+      <div class="subscreen-sub">devine les réponses de l'autre</div>
+    </div>
+  </div>
+  <div class="fw" id="quiz-content"></div>
+</div>
+<div class="screen subscreen" id="screen-draw">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="history.back()" aria-label="Retour">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Dessin à deux</div>
+      <div class="subscreen-sub">un tableau rien qu'à vous</div>
+    </div>
+  </div>
+  <div class="fw" id="draw-content"></div>
+</div>
+<div class="screen subscreen" id="screen-jar">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="history.back()" aria-label="Retour">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Le bocal</div>
+      <div class="subscreen-sub">nos petits souvenirs, à piocher</div>
+    </div>
+  </div>
+  <div class="fw" id="jar-content"></div>
+</div>
+<div class="screen subscreen" id="screen-recap">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="history.back()" aria-label="Retour">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Album du mois</div>
+      <div class="subscreen-sub">votre mois en bref</div>
+    </div>
+  </div>
+  <div class="fw" id="recap-content"></div>
+</div>
+<div class="screen subscreen" id="screen-nous">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="history.back()" aria-label="Retour">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Nous deux</div>
+      <div class="subscreen-sub">distance, dates et météo</div>
+    </div>
+  </div>
+  <div class="fw" id="nous-content"></div>
 </div>
 
 <!-- ════════ HISTORY (subscreen) ════════ -->
@@ -418,7 +545,14 @@
 <script type="module" src="firebase-messaging.js"></script>
 <script src="app.js"></script>
 <script src="messaging-patch.js"></script>
+<script src="shared.js"></script>
 <script src="presence.js"></script>
 <script src="open-when.js"></script>
+<script src="daily.js"></script>
+<script src="together.js"></script>
+<script src="voice.js"></script>
+<script src="memories.js"></script>
+<script src="play.js"></script>
+<script src="extras.js"></script>
 </body>
 </html>

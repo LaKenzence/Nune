@@ -63,7 +63,7 @@ exports.onMessage = onDocumentCreated("messages/{id}", async (event) => {
   const u = who(m.from);
   await sendTo(other(m.from), {
     title: `${u.emoji} ${u.name} t'a écrit`,
-    body:  short(m.text) || "✦",
+    body:  short(m.text) || (m.voiceId ? "🎤 message vocal" : "✦"),
     tag:   "msg",
   });
 });
@@ -144,6 +144,66 @@ exports.onMoment = onDocumentCreated("moments/{id}", async (event) => {
     title: `🗓 ${u.name} a ajouté une date`,
     body:  short(m.name, 80),
     tag:   "moment",
+  });
+});
+
+exports.onKiss = onDocumentCreated("kisses/{id}", async (event) => {
+  const k = event.data?.data();
+  if (!k?.from) return;
+  const u = who(k.from);
+  await sendTo(other(k.from), { title: `😘 ${u.name} t'envoie un bisou`, body: "💋💋💋", tag: "kiss" });
+});
+
+exports.onRitual = onDocumentCreated("rituals/{id}", async (event) => {
+  const r = event.data?.data();
+  if (!r?.from) return;
+  const u = who(r.from);
+  await sendTo(other(r.from), r.type === "night"
+    ? { title: `🌙 ${u.name} va dormir`, body: "Bonne nuit ✨", tag: "ritual" }
+    : { title: `☀️ ${u.name} te dit bonjour`, body: "Belle journée à toi 💛", tag: "ritual" });
+});
+
+exports.onAnswer = onDocumentCreated("answers/{id}", async (event) => {
+  const a = event.data?.data();
+  if (!a?.from) return;
+  const u = who(a.from);
+  await sendTo(other(a.from), {
+    title: `💬 ${u.name} a répondu à la question du jour`,
+    body:  "Réponds pour découvrir sa réponse 🔒",
+    tag:   "question",
+  });
+});
+
+exports.onJar = onDocumentCreated("jar/{id}", async (event) => {
+  const j = event.data?.data();
+  if (!j?.from) return;
+  const u = who(j.from);
+  await sendTo(other(j.from), { title: `🫙 ${u.name} a glissé un souvenir dans le bocal`, body: "Viens le piocher ✨", tag: "jar" });
+});
+
+exports.onChallenge = onDocumentCreated("challenges/{id}", async (event) => {
+  const c = event.data?.data();
+  if (!c?.from) return;
+  const u = who(c.from);
+  await sendTo(other(c.from), { title: `🎯 ${u.name} a relevé le défi de la semaine`, body: short(c.text) || "À ton tour 📸", tag: "challenge" });
+});
+
+exports.onQuizQuestion = onDocumentCreated("quiz/{id}", async (event) => {
+  const q = event.data?.data();
+  if (!q?.from) return;
+  const u = who(q.from);
+  await sendTo(other(q.from), { title: `🧠 ${u.name} te pose une question`, body: short(q.question, 80), tag: "quiz" });
+});
+
+exports.onQuizAnswered = onDocumentUpdated("quiz/{id}", async (event) => {
+  const before = event.data?.before.data();
+  const after  = event.data?.after.data();
+  if (!after || before?.answer != null || after.answer == null) return;
+  const u = who(other(after.from));
+  await sendTo(after.from, {
+    title: after.answer === after.correct ? `✅ ${u.name} a trouvé !` : `❌ ${u.name} s'est trompé·e`,
+    body:  short(after.question, 80),
+    tag:   "quiz",
   });
 });
 

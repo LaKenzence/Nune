@@ -6,7 +6,7 @@ import { initializeApp }
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
   collection, doc, addDoc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot,
-  query, orderBy, limitToLast, serverTimestamp,
+  query, orderBy, limitToLast, where, getDocs, getCountFromServer, writeBatch, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getMessaging, getToken, isSupported }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
@@ -70,6 +70,10 @@ window._fb = {
   query,
   orderBy,
   limitToLast,
+  where,
+  getDocs,
+  getCountFromServer,
+  writeBatch,
   serverTimestamp,
   getPushToken,
   get uid() { return auth.currentUser?.uid || null; },
