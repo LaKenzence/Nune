@@ -1,0 +1,97 @@
+rules_version = '2';
+
+/* ══════════════════════════════════════════
+   Règles Firestore — seuls vos deux téléphones ont accès
+   - Chaque appareil se connecte en anonyme (Firebase Auth)
+   - Il devient « membre » en donnant le code secret du couple,
+     rangé dans config/pairing (illisible depuis l'appli)
+   - Un membre ne peut écrire qu'en son nom (from == son profil)
+   Déploiement : npx firebase-tools deploy --only firestore:rules
+   ══════════════════════════════════════════ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function memberPath() { return /databases/$(database)/documents/members/$(request.auth.uid); }
+    function isMember() { return signedIn() && exists(memberPath()); }
+    function myProfile() { return get(memberPath()).data.profile; }
+    function otherProfile() { return myProfile() == 'kenzo' ? 'nune' : 'kenzo'; }
+    function pairingCode() { return get(/databases/$(database)/documents/config/pairing).data.code; }
+    function data() { return request.resource.data; }
+    function fromMe() { return data().from == myProfile(); }
+    function onlyChanges(keys) { return data().diff(resource.data).affectedKeys().hasOnly(keys); }
+
+    /* Le code secret : jamais lisible ni modifiable depuis l'appli */
+    match /config/{doc} {
+      allow read, write: if false;
+    }
+
+    /* Un appareil rejoint le couple avec le bon code */
+    match /members/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && data().code == pairingCode()
+        && data().profile in ['kenzo', 'nune'];
+    }
+
+    match /messages/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && fromMe()
+        && data().text is string && data().text.size() <= 4000;
+    }
+
+    match /reactions/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && fromMe() && data().emoji is string && data().emoji.size() <= 16;
+    }
+
+    match /shared_signals/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && fromMe();
+    }
+
+    match /moods/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && fromMe();
+    }
+
+    match /photos/{id} {
+      allow read, delete: if isMember();
+      allow create: if isMember() && fromMe();
+    }
+
+    match /photo_full/{id} {
+      allow read, create, delete: if isMember();
+    }
+
+    match /push_tokens/{token} {
+      allow create, update: if isMember() && data().user == myProfile();
+      allow delete: if isMember();
+    }
+
+    /* Présence : chacun ne met à jour que la sienne */
+    match /presence/{user} {
+      allow read: if isMember();
+      allow write: if isMember() && user == myProfile();
+    }
+
+    /* Lettres « ouvre quand… » : on écrit pour l'autre,
+       seul·e le/la destinataire peut la marquer comme ouverte */
+    match /open_when/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && fromMe() && data().to == otherProfile()
+        && data().text is string && data().text.size() <= 8000
+        && data().openedAt == null;
+      allow update: if isMember() && resource.data.to == myProfile() && onlyChanges(['openedAt']);
+      allow delete: if isMember() && resource.data.from == myProfile();
+    }
+
+    /* Dates importantes partagées */
+    match /moments/{id} {
+      allow read, delete: if isMember();
+      allow create, update: if isMember() && fromMe()
+        && data().name is string && data().name.size() <= 60
+        && data().date is string && data().date.size() == 10;
+    }
+  }
+}

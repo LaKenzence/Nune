@@ -259,6 +259,7 @@ function pushScreen(name) {
   if (name === 'letter')    renderLetter();
   if (name === 'playlist')  renderPlaylist();
   if (name === 'themes')    renderThemePicker();
+  if (name === 'openwhen' && window.renderOpenWhen) window.renderOpenWhen();
 
   if (navigator.vibrate) navigator.vibrate(8);
 }
@@ -1250,29 +1251,114 @@ function renderLetter() {
 /* ════════════════════════════════════════
    COUNTDOWNS + BIRTHDAY
 ════════════════════════════════════════ */
-function getCountdowns() { try { return JSON.parse(localStorage.getItem('countdowns') || '[]'); } catch { return []; } }
+/* Les dates sont partagées via Firestore (moments/{id}) dès que la
+   messagerie est prête ; avant ça (ou hors connexion au premier lancement)
+   on affiche la copie locale. Les dates « yearly » reviennent chaque année. */
+let sharedMoments = null;
+
+function nextOccurrence(dateStr) {
+  const [, m, d] = dateStr.split('-');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let year = today.getFullYear();
+  if (new Date(`${year}-${m}-${d}T00:00:00`) < today) year++;
+  return `${year}-${m}-${d}`;
+}
+
+function getCountdowns() {
+  if (sharedMoments) {
+    return sharedMoments.map(c => ({ ...c, date: c.yearly ? nextOccurrence(c.date) : c.date }));
+  }
+  try { return JSON.parse(localStorage.getItem('countdowns') || '[]'); } catch { return []; }
+}
 function saveCountdowns(list) { localStorage.setItem('countdowns', JSON.stringify(list)); }
 
-function addCountdown() {
-  const name = document.getElementById('cd-name').value.trim();
-  const date = document.getElementById('cd-date').value;
-  if (!name || !date) { showToast("Remplis les deux champs ✦"); return; }
-  const list = getCountdowns();
-  list.push({ id: Date.now(), name, date });
-  saveCountdowns(list);
-  document.getElementById('cd-name').value = '';
-  document.getElementById('cd-date').value = '';
-  renderCountdowns();
+function refreshMoments() {
+  if (document.getElementById('screen-countdown')?.classList.contains('slide-in')) renderCountdowns();
   renderNextMoment();
-  showToast("Date ajoutée 🗓");
+  renderMoreTiles();
 }
 
-function deleteCountdown(id) {
-  if (!confirm('Supprimer cette date ?')) return;
-  saveCountdowns(getCountdowns().filter(c => c.id !== id));
-  renderCountdowns();
-  renderNextMoment();
+async function addCountdown() {
+  const name = document.getElementById('cd-name').value.trim();
+  const date = document.getElementById('cd-date').value;
+  const yearly = document.getElementById('cd-yearly')?.checked || false;
+  if (!name || !date) { showToast("Remplis les deux champs ✦"); return; }
+
+  if (sharedMoments && window._fb) {
+    const { db, collection, addDoc, serverTimestamp } = window._fb;
+    try {
+      await addDoc(collection(db, 'moments'), { name, date, yearly, from: Identity.get(), createdAt: serverTimestamp() });
+    } catch (e) {
+      console.error('Date :', e);
+      showToast("La date n'a pas pu être ajoutée 🙁");
+      return;
+    }
+  } else {
+    const list = getCountdowns();
+    list.push({ id: Date.now(), name, date, yearly });
+    saveCountdowns(list);
+    refreshMoments();
+  }
+  document.getElementById('cd-name').value = '';
+  document.getElementById('cd-date').value = '';
+  if (document.getElementById('cd-yearly')) document.getElementById('cd-yearly').checked = false;
+  showToast(sharedMoments ? "Date ajoutée pour vous deux 🗓" : "Date ajoutée 🗓");
 }
+
+async function deleteCountdown(id) {
+  if (!confirm('Supprimer cette date pour vous deux ?')) return;
+  if (sharedMoments && window._fb) {
+    const { db, doc, deleteDoc } = window._fb;
+    try { await deleteDoc(doc(db, 'moments', String(id))); }
+    catch (e) { showToast("Suppression impossible 🙁"); }
+    return;
+  }
+  saveCountdowns(getCountdowns().filter(c => String(c.id) !== String(id)));
+  refreshMoments();
+}
+
+/* Les dates fixes (anniversaires…) ont un identifiant stable :
+   les deux téléphones les partagent sans doublon */
+const SEED_MOMENTS = [
+  { key: 'nune-birthday',  name: "Anniversaire de Nune 🎂",     date: '2000-08-23' },
+  { key: 'kenzo-birthday', name: "Anniversaire de Kenzo 🎂",    date: '2000-07-20' },
+  { key: 'lisbon-trip',    name: "Notre voyage à Lisbonne ✈️", date: '2000-08-12' },
+];
+
+function subscribeToMoments() {
+  const { db, collection, onSnapshot } = window._fb;
+  onSnapshot(collection(db, 'moments'), (snap) => {
+    sharedMoments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!localStorage.getItem('moments-shared')) shareLocalMoments();
+    refreshMoments();
+  }, (err) => window.onFirestoreError && window.onFirestoreError(err));
+}
+
+/* Une fois : les dates ajoutées sur ce téléphone rejoignent la liste commune */
+async function shareLocalMoments() {
+  localStorage.setItem('moments-shared', '1');
+  const { db, collection, doc, addDoc, setDoc, serverTimestamp } = window._fb;
+  const me = Identity.get();
+  const existing = new Set(sharedMoments.map(m => m.name));
+  try {
+    for (const m of SEED_MOMENTS) {
+      if (existing.has(m.name)) continue;
+      await setDoc(doc(db, 'moments', 'seed-' + m.key), { name: m.name, date: m.date, yearly: true, from: me, createdAt: serverTimestamp() });
+    }
+    const seedNames = new Set(SEED_MOMENTS.map(m => m.name));
+    let local = [];
+    try { local = JSON.parse(localStorage.getItem('countdowns') || '[]'); } catch {}
+    for (const c of local) {
+      if (seedNames.has(c.name) || existing.has(c.name) || !c.date) continue;
+      await addDoc(collection(db, 'moments'), { name: c.name, date: c.date, yearly: !!c.yearly, from: me, createdAt: serverTimestamp() });
+    }
+  } catch (e) {
+    console.warn('Partage des dates échoué :', e);
+    localStorage.removeItem('moments-shared');
+  }
+}
+if (window.onNuneReady) window.onNuneReady(subscribeToMoments);
+else window.addEventListener('nune:ready', subscribeToMoments, { once: true });
 
 function getTimeLeft(dateStr) {
   const now = new Date();
@@ -1376,13 +1462,13 @@ function renderCountdowns() {
     if (!tl) {
       return `<div class="countdown-card" role="article" aria-label="${escapeHtml(c.name)}">
         <div class="countdown-card-top"><div class="countdown-name">${escapeHtml(c.name)}</div>
-        <button class="countdown-delete" onclick="deleteCountdown(${c.id})" aria-label="Supprimer ${escapeHtml(c.name)}">✕</button></div>
+        <button class="countdown-delete" onclick="deleteCountdown('${c.id}')" aria-label="Supprimer ${escapeHtml(c.name)}">✕</button></div>
         ${isToday ? `<div class="countdown-celebrate" role="status">🎉 C'est aujourd'hui ! 🎉</div>` : `<div class="countdown-past">Ce moment est passé ✨</div>`}
       </div>`;
     }
     return `<div class="countdown-card" data-id="${c.id}" role="article" aria-label="${escapeHtml(c.name)} : ${tl.days} jours">
       <div class="countdown-card-top"><div class="countdown-name">${escapeHtml(c.name)}</div>
-      <button class="countdown-delete" onclick="deleteCountdown(${c.id})" aria-label="Supprimer ${escapeHtml(c.name)}">✕</button></div>
+      <button class="countdown-delete" onclick="deleteCountdown('${c.id}')" aria-label="Supprimer ${escapeHtml(c.name)}">✕</button></div>
       <div class="countdown-units" aria-hidden="true">
         <div class="cd-unit"><div class="cd-num" id="cd-d-${c.id}">${tl.days}</div><div class="cd-label">jours</div></div>
         <div class="cd-unit"><div class="cd-num" id="cd-h-${c.id}">${String(tl.hours).padStart(2,'0')}</div><div class="cd-label">heures</div></div>
@@ -1483,6 +1569,7 @@ function subscribeToPhotos() {
     },
     (err) => {
       console.error('Erreur galerie :', err);
+      if (window.onFirestoreError) window.onFirestoreError(err);
       photosLoaded = true;
       renderGallery(true);
     }

@@ -59,6 +59,99 @@ function resetIdentity() {
 window.resetIdentity = resetIdentity;
 
 /* ════════════════════════════════════════
+   CODE DU COUPLE (voir firestore.rules)
+   Chaque appareil, connecté en anonyme, devient membre en donnant
+   le code secret une fois. Tant que les règles ne sont pas déployées,
+   rien n'est demandé.
+════════════════════════════════════════ */
+
+/* Pour les autres modules : lance fn quand la messagerie est prête */
+function onNuneReady(fn) {
+  if (window._nuneReady) fn();
+  else window.addEventListener('nune:ready', fn, { once: true });
+}
+window.onNuneReady = onNuneReady;
+
+async function ensureMembership() {
+  const fb = window._fb;
+  const me = getCurrentUser();
+  if (!fb?.uid || !me) return; // pas de connexion anonyme → règles ouvertes
+  const ref = fb.doc(fb.db, 'members', fb.uid);
+  try {
+    const snap = await fb.getDoc(ref);
+    if (snap.exists() && snap.data().profile === me) return;
+  } catch (e) { /* hors ligne : on retentera au prochain lancement */ return; }
+
+  // Déjà membre avec un autre profil, ou code déjà connu sur ce téléphone
+  const code = localStorage.getItem('pair-code');
+  if (!code) return;
+  try {
+    await fb.setDoc(ref, { code, profile: me, joinedAt: fb.serverTimestamp() });
+  } catch (e) {
+    if (e.code === 'permission-denied') localStorage.removeItem('pair-code');
+  }
+}
+
+/* Toute lecture refusée = ce téléphone n'a pas encore donné le code */
+function onFirestoreError(err) {
+  if (err?.code === 'permission-denied') showPairingPrompt();
+  else console.error('Firestore :', err);
+}
+window.onFirestoreError = onFirestoreError;
+
+function showPairingPrompt() {
+  if (document.getElementById('pairing-prompt')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'pairing-prompt';
+  overlay.className = 'mood-prompt-overlay pairing-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-label', 'Code secret du couple');
+  overlay.innerHTML = `
+    <div class="mood-prompt-card">
+      <div class="pairing-lock" aria-hidden="true">🔐</div>
+      <div class="mood-prompt-title">Votre code secret</div>
+      <div class="pairing-text">Pour que vos messages et vos photos restent à vous deux, entre le code que vous avez choisi.</div>
+      <input class="form-input pairing-input" id="pairing-code" type="password"
+        autocomplete="off" placeholder="code du couple…" aria-label="Code du couple"
+        onkeydown="if(event.key==='Enter')submitPairingCode()">
+      <div class="pairing-error" id="pairing-error" role="alert"></div>
+      <button class="btn-add pairing-btn" id="pairing-btn" onclick="submitPairingCode()">Entrer ✦</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('pairing-code')?.focus(), 300);
+}
+
+async function submitPairingCode() {
+  const fb = window._fb;
+  const input = document.getElementById('pairing-code');
+  const errEl = document.getElementById('pairing-error');
+  const btn = document.getElementById('pairing-btn');
+  const code = input?.value.trim();
+  if (!code) return;
+  if (!fb?.uid) {
+    errEl.textContent = "La connexion anonyme n'est pas activée dans Firebase.";
+    return;
+  }
+  btn.disabled = true;
+  errEl.textContent = '';
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'members', fb.uid), {
+      code, profile: getCurrentUser(), joinedAt: fb.serverTimestamp(),
+    });
+    localStorage.setItem('pair-code', code);
+    showToast('Bienvenue chez vous 🔐✨');
+    setTimeout(() => location.reload(), 600);
+  } catch (e) {
+    errEl.textContent = e.code === 'permission-denied' ? 'Code incorrect 🙁' : 'Connexion impossible, réessaie.';
+    btn.disabled = false;
+    input.select();
+    vibrate([40, 30, 40]);
+  }
+}
+window.submitPairingCode = submitPairingCode;
+
+/* ════════════════════════════════════════
    MESSAGING
 ════════════════════════════════════════ */
 let unsubscribeMessages = null;
@@ -78,6 +171,8 @@ async function initMessaging() {
   if (messagingStarted) return;
   messagingStarted = true;
 
+  await ensureMembership();
+
   // Les abonnements d'abord : ils ne doivent pas dépendre du service worker
   subscribeToMessages();
   subscribeToReactions();
@@ -85,6 +180,10 @@ async function initMessaging() {
   subscribeToMood();
   updateInputPlaceholder();
   checkMoodPrompt();
+
+  // Les autres modules (presence.js, open-when.js, moments) démarrent ici
+  window._nuneReady = true;
+  window.dispatchEvent(new Event('nune:ready'));
 
   if ('serviceWorker' in navigator) {
     try {
@@ -159,7 +258,7 @@ function subscribeToMessages() {
     if (isFirstLoad) scrollChatToBottom();
     isFirstLoad = false;
 
-  }, (err) => console.error('Firestore error :', err));
+  }, onFirestoreError);
 }
 
 /* ════════════════════════════════════════
@@ -193,7 +292,7 @@ function subscribeToReactions() {
       }
     });
     isFirstLoad = false;
-  });
+  }, onFirestoreError);
 }
 
 function updateReactionDisplay(msgId, emoji, from) {
@@ -299,7 +398,7 @@ function subscribeToSharedSignal() {
       if (!isFirstLoad) checkSharedSignalMatch(data.from, at);
     });
     isFirstLoad = false;
-  });
+  }, onFirestoreError);
 }
 
 async function sendSharedSignal() {
@@ -405,7 +504,7 @@ function subscribeToMood() {
       }
     });
     isFirstLoad = false;
-  });
+  }, onFirestoreError);
 }
 
 /* L'humeur de l'autre s'affiche sous son nom, dans l'en-tête du chat */
@@ -416,10 +515,21 @@ function renderOtherMood(data) {
     ? "aujourd'hui"
     : `le ${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
 
-  const el = document.getElementById('msg-screen-status');
-  if (!el) return;
-  el.innerHTML = `<span class="status-mood">${data.emoji}</span> ${escapeHtml(data.label || '').toLowerCase()} ${when}`;
-  el.classList.add('has-mood');
+  const avatar = document.getElementById('msg-screen-avatar');
+  if (!avatar) return;
+  let badge = document.getElementById('avatar-mood');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.id = 'avatar-mood';
+    badge.className = 'avatar-mood';
+    avatar.appendChild(badge);
+  }
+  const who = Identity.profile(data.from).name;
+  const text = `${who} ${isToday ? 'est' : 'était'} ${(data.label || '').toLowerCase()} ${when}`;
+  badge.textContent = data.emoji;
+  badge.title = text;
+  avatar.onclick = () => showToast(`${data.emoji} ${text}`);
+  avatar.setAttribute('aria-label', text);
 }
 
 function checkMoodPrompt() {
@@ -661,6 +771,7 @@ function renderMessage(data, msgId, animate = false) {
 
   lastRendered = { from: data.from, at: date, dayKey };
   if (isMe || stick) scrollChatToBottom(animate);
+  window.dispatchEvent(new CustomEvent('nune:message', { detail: { msgId, data } }));
 }
 
 /* L'heure arrive quand le serveur confirme l'envoi */
@@ -668,6 +779,7 @@ function updateMessageTime(data, msgId) {
   messagesById.set(msgId, data);
   const timeEl = document.querySelector(`[data-msg-id="${msgId}"] .bubble-time`);
   if (timeEl && data.createdAt) timeEl.textContent = formatTime(msgDate(data));
+  window.dispatchEvent(new CustomEvent('nune:message', { detail: { msgId, data } }));
 }
 
 function renderMsgReactions(msgId) {
@@ -701,6 +813,7 @@ function clearUnread() {
 window.onChatOpened = function() {
   clearUnread();
   requestAnimationFrame(() => scrollChatToBottom());
+  window.dispatchEvent(new Event('nune:chat-opened'));
 };
 
 function updateInputPlaceholder() {
@@ -745,11 +858,11 @@ window.send = function() {
 ════════════════════════════════════════ */
 function waitForFirebase(callback, tries = 0) {
   if (window._fb) {
-        callback();
-  } else if (tries < 30) {
+    callback();
+  } else if (tries < 150) {
     setTimeout(() => waitForFirebase(callback, tries + 1), 100);
   } else {
-    console.warn('Firebase non disponible après 3s');
+    console.warn('Firebase non disponible après 15 s');
   }
 }
 

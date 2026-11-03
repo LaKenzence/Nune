@@ -9,7 +9,9 @@ Une PWA (Progressive Web App) privée à deux personnes : un compagnon de couple
 - **Notifications push** — Firebase Cloud Messaging + Cloud Functions (`functions/`), actives même app fermée, plus un signal du jour à 10 h.
 - **Galerie partagée** — photos compressées dans le navigateur puis stockées dans Firestore, visibles sur les deux téléphones, avec légendes et lightbox.
 - **La Lettre** — page statique personnalisée.
-- **Compte à rebours** — anniversaires et événements importants, pré-remplis et modifiables.
+- **Lettres « ouvre quand… »** — lettres scellées écrites pour l'autre (« quand tu es triste », « quand je te manque »…), notifiées à l'ouverture.
+- **Présence** — « en ligne », « vu » sous le dernier message, et l'heure locale de l'autre quand vous n'êtes pas sur le même fuseau.
+- **Compte à rebours partagé** — anniversaires (récurrents chaque année) et événements, synchronisés entre les deux téléphones.
 - **Thèmes visuels** — plusieurs ambiances de couleurs.
 - **Playlist partagée** — embed Spotify.
 - **PWA installable** — manifest + service worker, fonctionne hors-ligne pour le contenu statique.
@@ -24,6 +26,9 @@ Une PWA (Progressive Web App) privée à deux personnes : un compagnon de couple
 | `app.js` | Cœur de l'appli : signaux, ciel animé, galerie partagée, thèmes, comptes à rebours, citations, onboarding, navigation |
 | `messaging-patch.js` | Temps réel : fil de conversation, réactions, signal partagé, humeur du jour, enregistrement push |
 | `sw.js` | Service worker : cache (réseau d'abord) + affichage des notifications push |
+| `presence.js` | Présence en ligne, accusé « vu », heure locale de l'autre |
+| `open-when.js` | Lettres « ouvre quand… » |
+| `firestore.rules` | Règles de sécurité Firestore (accès réservé à vos deux téléphones) |
 | `functions/index.js` | Cloud Functions : envoie les notifications push (messages, réactions, humeurs, signaux, photos, signal du jour) |
 | `style.css` | Tous les styles (thèmes, animations, composants) |
 | `manifest.json` | Manifeste PWA (icônes en SVG inline, couleurs, nom) |
@@ -31,7 +36,7 @@ Une PWA (Progressive Web App) privée à deux personnes : un compagnon de couple
 ## ⚙️ Architecture technique
  
 - **Stockage local** : `localStorage` (compteur de signaux, historique, thème, profil, comptes à rebours). Les anciennes photos IndexedDB sont partagées automatiquement à la première ouverture de la galerie.
-- **Backend temps réel** : Firebase Firestore. Collections : `messages`, `reactions`, `shared_signals`, `moods`, `photos` (miniatures), `photo_full` (images HD), `push_tokens` (un document par appareil).
+- **Backend temps réel** : Firebase Firestore. Collections : `messages`, `reactions`, `shared_signals`, `moods`, `photos` (miniatures), `photo_full` (images HD), `push_tokens` (un document par appareil), `presence`, `open_when`, `moments`, `members` (appareils autorisés) et `config/pairing` (code secret, illisible depuis l'appli).
 - **Identité** : deux profils fixes, `kenzo` et `nune` (`profiles.js`), choisis à l'onboarding avec un prénom libre pour l'affichage.
 - **Push** : chaque appareil enregistre son jeton FCM dans `push_tokens` ; les Cloud Functions réagissent aux nouveaux documents et envoient la notification à l'autre personne.
 
@@ -44,11 +49,20 @@ Une PWA (Progressive Web App) privée à deux personnes : un compagnon de couple
    - Générer une clé « Certificats Web Push » (console Firebase → Paramètres du projet → Cloud Messaging) et la coller dans `FIREBASE_VAPID_KEY` (`firebase-config.js`).
    - Passer le projet en offre Blaze, vérifier `REGION` dans `functions/index.js` (emplacement de la base Firestore), puis : `cd functions && npm install && cd .. && npx firebase-tools deploy --only functions`.
 5. Ouvrir l'app, choisir son profil (Kenzo ou Nune) et son prénom, puis toucher « Activer » pour les notifications (sur iPhone : ajouter d'abord l'app à l'écran d'accueil).
-## 🔐 Sécurité — à corriger en priorité
- 
-C'est le point le plus important du projet actuel :
- 
-- La config Firebase (clé API, project ID…) est dans `firebase-config.js`, donc publique. Pour Firebase, ce n'est pas un secret en soi (ces clés sont conçues pour être publiques côté client), **mais** cela ne protège rien sans règles Firestore strictes.
-- Rien n'indique que des **règles de sécurité Firestore** restreignent l'accès. Si la base est encore en règles ouvertes ou par défaut, n'importe qui ayant l'URL du projet peut lire/écrire dans toutes les collections, y compris les photos de `photos` et `photo_full`.
-- Il n'y a **aucune authentification réelle** : l'« identité » Kenzo/Nune est juste une valeur `localStorage`, donc falsifiable par n'importe qui ouvrant les DevTools.
-Recommandation minimale : règles Firestore qui exigent une authentification Firebase (même anonyme) et limitent l'accès aux deux UID autorisés, plutôt qu'un système purement déclaratif côté client.
+## 🔐 Sécurité — code du couple
+
+L'accès à Firestore est réservé à vos deux téléphones grâce à `firestore.rules` :
+
+- chaque appareil se connecte en **anonyme** (Firebase Auth) ;
+- il devient **membre** (`members/{uid}`) une seule fois, en entrant le **code secret du couple** ;
+- ce code est rangé dans `config/pairing`, que l'appli ne peut ni lire ni modifier : il n'est **jamais dans le dépôt** ;
+- un membre ne peut écrire qu'en son propre nom (impossible d'envoyer un message « de Nune » depuis le téléphone de Kenzo).
+
+**Mise en place (une fois) :**
+
+1. Console Firebase → **Authentication** → Commencer → onglet « Sign-in method » → activer **Anonyme**.
+2. Console Firebase → **Firestore** → créer la collection `config`, document `pairing`, champ `code` (chaîne) = votre code. Choisissez-le long et difficile à deviner (une petite phrase à vous).
+3. Déployer les règles : `npx firebase-tools deploy --only firestore:rules`.
+4. Sur chaque téléphone, l'appli demande le code une fois, puis ne le redemande plus.
+
+Tant que les règles ne sont pas déployées, l'appli fonctionne comme avant et ne demande rien.

@@ -5,7 +5,7 @@
    même quand l'appli est fermée.
    Déploiement : firebase deploy --only functions
    ══════════════════════════════════════════ */
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onSchedule }        = require("firebase-functions/v2/scheduler");
 const { setGlobalOptions }  = require("firebase-functions/v2");
 const { initializeApp }     = require("firebase-admin/app");
@@ -109,6 +109,41 @@ exports.onPhoto = onDocumentCreated("photos/{id}", async (event) => {
     title: `🌸 ${u.name} a ajouté un souvenir`,
     body:  short(p.caption) || "Viens voir la galerie ✦",
     tag:   "photo",
+  });
+});
+
+exports.onOpenWhenLetter = onDocumentCreated("open_when/{id}", async (event) => {
+  const l = event.data?.data();
+  if (!l?.from || !l?.to) return;
+  const u = who(l.from);
+  await sendTo(l.to, {
+    title: `💌 ${u.name} t'a laissé une lettre`,
+    body:  `À ouvrir quand ${short(l.label, 60)}`,
+    tag:   "open-when",
+  });
+});
+
+/* Prévient l'auteur·e quand sa lettre est ouverte */
+exports.onOpenWhenOpened = onDocumentUpdated("open_when/{id}", async (event) => {
+  const before = event.data?.before.data();
+  const after  = event.data?.after.data();
+  if (!after || before?.openedAt || !after.openedAt) return;
+  const u = who(after.to);
+  await sendTo(after.from, {
+    title: `✨ ${u.name} a ouvert ta lettre`,
+    body:  `« ouvre quand ${short(after.label, 60)} »`,
+    tag:   "open-when",
+  });
+});
+
+exports.onMoment = onDocumentCreated("moments/{id}", async (event) => {
+  const m = event.data?.data();
+  if (!m?.from || event.params.id.startsWith("seed-")) return;
+  const u = who(m.from);
+  await sendTo(other(m.from), {
+    title: `🗓 ${u.name} a ajouté une date`,
+    body:  short(m.name, 80),
+    tag:   "moment",
   });
 });
 

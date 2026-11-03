@@ -209,6 +209,16 @@
           <div class="tile-sub" id="tile-gallery-sub">galerie partagée</div>
         </div>
       </button>
+      <button class="tile tile-wide tile-openwhen" onclick="pushScreen('openwhen')">
+        <span class="tile-icon">✉️</span>
+        <div class="tile-content-row">
+          <div>
+            <div class="tile-title">Ouvre quand…</div>
+            <div class="tile-sub" id="tile-openwhen-sub">des lettres scellées</div>
+          </div>
+          <span class="tile-badge" id="tile-openwhen-badge" style="display:none"></span>
+        </div>
+      </button>
       <button class="tile tile-letter" onclick="pushScreen('letter')">
         <span class="tile-icon">💌</span>
         <div class="tile-title">La Lettre</div>
@@ -270,13 +280,14 @@
     <button class="back-btn" onclick="history.back()" aria-label="Retour">‹</button>
     <div class="subscreen-title-block">
       <div class="subscreen-title">Compte à rebours</div>
-      <div class="subscreen-sub">les moments importants</div>
+      <div class="subscreen-sub">partagés entre vous deux</div>
     </div>
   </div>
   <div class="countdown-list" id="countdown-list" style="margin-top:16px"></div>
   <div class="add-countdown-form" style="margin-top:16px">
     <input class="form-input" id="cd-name" type="text" placeholder="Nom (ex: Notre anniversaire…)" maxlength="40">
     <input class="form-input" id="cd-date" type="date">
+    <label class="cd-yearly"><input type="checkbox" id="cd-yearly"> revient chaque année (anniversaire…)</label>
     <button class="btn-add" onclick="addCountdown()">Ajouter ✦</button>
   </div>
 </div>
@@ -316,6 +327,18 @@
     <div class="letter-seal">💌</div>
     <div class="letter-meta" id="letter-meta"></div>
   </div>
+</div>
+
+<!-- ════════ OUVRE QUAND (subscreen) ════════ -->
+<div class="screen subscreen" id="screen-openwhen">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="history.back()" aria-label="Retour">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Ouvre quand…</div>
+      <div class="subscreen-sub">des lettres scellées, rien que pour vous</div>
+    </div>
+  </div>
+  <div class="ow-wrap" id="openwhen-content"></div>
 </div>
 
 <!-- ════════ HISTORY (subscreen) ════════ -->
@@ -395,5 +418,7 @@
 <script type="module" src="firebase-messaging.js"></script>
 <script src="app.js"></script>
 <script src="messaging-patch.js"></script>
+<script src="presence.js"></script>
+<script src="open-when.js"></script>
 </body>
 </html>
