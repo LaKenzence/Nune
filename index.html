@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#c2185b">
 <title>Twenty Three – Pour Nune</title>
 <link rel="manifest" href="manifest.json">
@@ -62,6 +62,7 @@
 
 <!-- Lightbox -->
 <div id="lightbox" onclick="if(event.target===this)closeLightbox()">
+  <div id="lightbox-counter" aria-live="polite"></div>
   <img id="lightbox-img" src="" alt="">
   <div id="lightbox-caption"></div>
   <div id="lightbox-meta"></div>
@@ -200,9 +201,12 @@
 
   <!-- ════════ MORE (hub) ════════ -->
   <div class="screen" id="screen-more" data-tab="more">
-    <div class="screen-header">
-      <div class="screen-title">Notre coin</div>
-      <div class="screen-sub">tout ce qui est à nous ✦</div>
+    <div class="screen-header screen-header-row">
+      <div>
+        <div class="screen-title">Notre coin</div>
+        <div class="screen-sub">tout ce qui est à nous ✦</div>
+      </div>
+      <button class="secret-btn" onclick="pushScreen('settings')" aria-label="Réglages">⚙️</button>
     </div>
 
     <div class="section-label">chaque jour</div>
@@ -323,8 +327,14 @@
       <div class="music-ambiance-grid" id="ambiance-grid"></div>
     </div>
 
-    <button class="backup-btn" onclick="exportBackup()">💾 sauvegarder tous nos souvenirs</button>
-    <button class="profile-link" onclick="resetIdentity()">changer de profil</button>
+    <button class="settings-entry" onclick="pushScreen('settings')">
+      <span aria-hidden="true">⚙️</span>
+      <span class="settings-entry-text">
+        <span class="settings-entry-title">Réglages</span>
+        <span class="settings-entry-sub">notifications, position, profil, sauvegarde</span>
+      </span>
+      <span class="moment-arrow" aria-hidden="true">›</span>
+    </button>
   </div>
 
 </div><!-- /swipe-wrapper -->
@@ -358,8 +368,8 @@
   </div>
   <div class="gallery-add-area">
     <input class="form-input" id="photo-caption" type="text" placeholder="Une petite légende (optionnel)…" maxlength="60">
-    <label class="gallery-upload" for="photo-upload">+ Ajouter une photo</label>
-    <input type="file" id="photo-upload" accept="image/*" style="display:none" onchange="handlePhotoUpload(event)">
+    <label class="gallery-upload" for="photo-upload">+ Ajouter des photos</label>
+    <input type="file" id="photo-upload" accept="image/*" multiple style="display:none" onchange="handlePhotoUpload(event)">
   </div>
   <div class="gallery-grid" id="gallery-grid"></div>
 </div>
@@ -468,6 +478,17 @@
   <div class="fw" id="nous-content"></div>
 </div>
 
+<div class="screen subscreen" id="screen-settings">
+  <div class="subscreen-header">
+    <button class="back-btn" onclick="history.back()" aria-label="Retour">‹</button>
+    <div class="subscreen-title-block">
+      <div class="subscreen-title">Réglages</div>
+      <div class="subscreen-sub">tout au même endroit</div>
+    </div>
+  </div>
+  <div class="fw" id="settings-content"></div>
+</div>
+
 <!-- ════════ HISTORY (subscreen) ════════ -->
 <div class="screen subscreen" id="screen-history">
   <div class="subscreen-header">
@@ -554,5 +575,6 @@
 <script src="memories.js"></script>
 <script src="play.js"></script>
 <script src="extras.js"></script>
+<script src="ux.js"></script>
 </body>
 </html>

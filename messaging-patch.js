@@ -50,8 +50,8 @@ window._initMessagingAfterOnboarding = function() {
 /* ════════════════════════════════════════
    RESET IDENTITÉ
 ════════════════════════════════════════ */
-function resetIdentity() {
-  if (!confirm('Changer de profil ?')) return;
+async function resetIdentity() {
+  if (!(await Nune.confirm({ icon: '👤', title: 'Changer de profil ?', text: "L'appli va redémarrer sur l'écran d'accueil.", ok: 'Changer' }))) return;
   Identity.clear();
   localStorage.removeItem('onboarding-done');
   window.location.reload();
@@ -353,6 +353,55 @@ function showReactionPicker(msgId) {
   msgEl.appendChild(picker);
 }
 
+/* Double-tap = ❤️ direct · appui long = choisir une réaction.
+   Un simple tap ne fait rien : on peut faire défiler sans déclencher. */
+let lastTap = { id: null, at: 0 };
+function attachBubbleGestures(bubble, msgId) {
+  let pressTimer = null;
+  let start = null;
+  bubble.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.voice-play')) return;
+    start = { x: e.clientX, y: e.clientY };
+    pressTimer = setTimeout(() => {
+      pressTimer = null;
+      vibrate([12]);
+      showReactionPicker(msgId);
+    }, 450);
+  });
+  bubble.addEventListener('pointermove', (e) => {
+    if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) { clearTimeout(pressTimer); pressTimer = null; }
+  });
+  const end = (e) => {
+    if (pressTimer === null) return;   // appui long déjà déclenché, ou geste annulé
+    clearTimeout(pressTimer);
+    pressTimer = null;
+    if (e.type !== 'pointerup') return;
+    const now = Date.now();
+    if (lastTap.id === msgId && now - lastTap.at < 320) {
+      lastTap = { id: null, at: 0 };
+      quickLove(bubble, msgId);
+    } else {
+      lastTap = { id: msgId, at: now };
+    }
+  };
+  bubble.addEventListener('pointerup', end);
+  bubble.addEventListener('pointercancel', end);
+  bubble.addEventListener('contextmenu', (e) => e.preventDefault());
+  bubble.addEventListener('click', (e) => e.stopPropagation());
+}
+
+function quickLove(bubble, msgId) {
+  const heart = document.createElement('span');
+  heart.className = 'bubble-love';
+  heart.textContent = '❤️';
+  bubble.appendChild(heart);
+  setTimeout(() => heart.remove(), 900);
+  vibrate([15, 30, 15]);
+  if (reactionsByMsg.get(msgId)?.has('❤️')) return;
+  sendReaction(msgId, '❤️');
+  updateReactionDisplay(msgId, '❤️', getCurrentUser());
+}
+
 async function sendReaction(msgId, emoji) {
   if (!window._fb) return;
   const me = getCurrentUser();
@@ -536,6 +585,9 @@ function checkMoodPrompt() {
   const today = new Date().toDateString();
   const lastMood = localStorage.getItem('my-mood-date');
   if (lastMood === today) return;
+  // Proposée une seule fois par jour ; ensuite la puce « ton humeur ? » reste sur l'accueil
+  if (localStorage.getItem('mood-asked') === today) return;
+  localStorage.setItem('mood-asked', today);
 
   // Affiche la popup d'humeur après 2s
   setTimeout(() => showMoodPrompt(), 2000);
@@ -594,6 +646,7 @@ async function submitMood(emoji, label) {
       createdAt: serverTimestamp(),
     });
     localStorage.setItem('my-mood-date', new Date().toDateString());
+    window.dispatchEvent(new Event('nune:mood-set'));
     showToast(`Humeur partagée ${emoji}`);
     vibrate([15]);
   } catch (err) {
@@ -676,6 +729,8 @@ async function sendChatMessage() {
   if (!text) return;
 
   input.value = "";
+  input.dispatchEvent(new Event('input'));   // remet le bouton micro (voice.js)
+  input.focus();                             // le clavier reste ouvert pour enchaîner
   vibrate([15]);
 
   if (!window._fb) return;
@@ -763,10 +818,7 @@ function renderMessage(data, msgId, animate = false) {
     `<div class="bubble-reactions"></div>`;
   row.querySelector('.bubble-text').textContent = data.text || '';
   if (data.voiceId && window.renderVoiceBubble) window.renderVoiceBubble(row.querySelector('.bubble-text'), data);
-  row.querySelector('.bubble').addEventListener('click', (e) => {
-    e.stopPropagation();
-    showReactionPicker(msgId);
-  });
+  attachBubbleGestures(row.querySelector('.bubble'), msgId);
   thread.appendChild(row);
   renderMsgReactions(msgId);
 

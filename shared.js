@@ -85,6 +85,47 @@ const Nune = {
     else showToast(message);
   },
 
+  /* Fenêtre de confirmation dans le style de l'appli (remplace confirm()).
+     await Nune.confirm({ title, text, ok, cancel, danger, icon }) → true / false */
+  confirm({ title, text = '', ok = 'Confirmer', cancel = 'Annuler', danger = false, icon = '' } = {}) {
+    return new Promise((resolve) => {
+      document.getElementById('nune-confirm')?.remove();
+      const overlay = document.createElement('div');
+      overlay.id = 'nune-confirm';
+      overlay.className = 'mood-prompt-overlay confirm-overlay';
+      overlay.setAttribute('role', 'alertdialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.innerHTML = `
+        <div class="mood-prompt-card confirm-card">
+          ${icon ? `<div class="confirm-icon" aria-hidden="true">${icon}</div>` : ''}
+          <div class="mood-prompt-title confirm-title"></div>
+          ${text ? '<div class="confirm-text"></div>' : ''}
+          <div class="confirm-actions">
+            <button class="confirm-btn ghost" data-v="0"></button>
+            <button class="confirm-btn${danger ? ' danger' : ''}" data-v="1"></button>
+          </div>
+        </div>`;
+      overlay.querySelector('.confirm-title').textContent = title;
+      if (text) overlay.querySelector('.confirm-text').textContent = text;
+      const [no, yes] = overlay.querySelectorAll('.confirm-btn');
+      no.textContent = cancel;
+      yes.textContent = ok;
+      const done = (v) => {
+        overlay.classList.add('closing');
+        document.removeEventListener('keydown', onKey);
+        setTimeout(() => overlay.remove(), 180);
+        resolve(v);
+      };
+      const onKey = (e) => { if (e.key === 'Escape') done(false); if (e.key === 'Enter') done(true); };
+      no.onclick = () => done(false);
+      yes.onclick = () => { vibrate([12]); done(true); };
+      overlay.onclick = (e) => { if (e.target === overlay) done(false); };
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(overlay);
+      setTimeout(() => yes.focus(), 50);
+    });
+  },
+
   /* Puces de l'accueil (question du jour, distance, souvenir du jour…).
      chip(key, { icon, text, order, hot, onClick }) — null pour retirer */
   _chips: {},

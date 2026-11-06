@@ -167,7 +167,7 @@ function initSwipe() {
     swipeStartY = e.touches[0].clientY;
     swipeDeltaX = 0;
     isSwiping = false;
-    swipeBlocked = false;
+    swipeBlocked = !!e.target.closest('.home-chips, .reaction-picker, input, textarea');
   }, { passive: true });
 
   w.addEventListener('touchmove', (e) => {
@@ -890,13 +890,17 @@ function spawnRipple(e, card) {
   setTimeout(() => rip.remove(), 800);
 }
 
+let toastTimer = null;
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.setAttribute('role', 'status');
   t.setAttribute('aria-live', 'polite');
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2800);
+  clearTimeout(toastTimer);
+  // Les messages longs restent un peu plus longtemps
+  toastTimer = setTimeout(() => t.classList.remove('show'), Math.min(6000, 2400 + msg.length * 35));
+  t.onclick = () => { clearTimeout(toastTimer); t.classList.remove('show'); };
 }
 
 function vibrate(pattern = [30]) {
@@ -1311,7 +1315,7 @@ async function addCountdown() {
 }
 
 async function deleteCountdown(id) {
-  if (!confirm('Supprimer cette date pour vous deux ?')) return;
+  if (!(await Nune.confirm({ icon: '🗓', title: 'Supprimer cette date ?', text: 'Elle disparaîtra aussi chez ' + Nune.otherName() + '.', ok: 'Supprimer', danger: true }))) return;
   if (sharedMoments && window._fb) {
     const { db, doc, deleteDoc } = window._fb;
     try { await deleteDoc(doc(db, 'moments', String(id))); }
@@ -1601,33 +1605,35 @@ async function migrateLocalPhotosToShared() {
 }
 
 async function handlePhotoUpload(event) {
-  const file = event.target.files[0];
+  const files = [...event.target.files];
   event.target.value = '';
-  if (!file) return;
+  if (!files.length) return;
   if (!window._fb) { showToast("Connexion impossible pour l'instant 🙁"); return; }
 
   const label = document.querySelector('.gallery-upload');
   const captionEl = document.getElementById('photo-caption');
   const caption = captionEl?.value.trim() || '';
   label?.classList.add('uploading');
-  if (label) label.textContent = 'Envoi du souvenir…';
 
-  try {
-    await uploadSharedPhoto(file, caption);
-    if (captionEl) captionEl.value = '';
-    showToast("Souvenir ajouté pour vous deux 🌸");
-    vibrate([15]);
-  } catch (err) {
-    console.error('Erreur ajout photo :', err);
-    showToast("Erreur lors de l'ajout 🙁");
-  } finally {
-    label?.classList.remove('uploading');
-    if (label) label.textContent = '+ Ajouter une photo';
+  let ok = 0;
+  for (let i = 0; i < files.length; i++) {
+    if (label) label.textContent = files.length > 1 ? `Envoi ${i + 1} / ${files.length}…` : 'Envoi du souvenir…';
+    try {
+      await uploadSharedPhoto(files[i], caption);
+      ok++;
+    } catch (err) {
+      console.error('Erreur ajout photo :', err);
+    }
   }
+  label?.classList.remove('uploading');
+  if (label) label.textContent = '+ Ajouter des photos';
+  if (ok && captionEl) captionEl.value = '';
+  if (ok) { showToast(ok > 1 ? `${ok} souvenirs ajoutés pour vous deux 🌸` : 'Souvenir ajouté pour vous deux 🌸'); vibrate([15]); }
+  if (ok < files.length) showToast(`${files.length - ok} photo${files.length - ok > 1 ? 's' : ''} n'a pas pu être ajoutée 🙁`);
 }
 
 async function deletePhoto(id) {
-  if (!confirm('Supprimer ce souvenir pour vous deux ?')) return;
+  if (!(await Nune.confirm({ icon: '🌸', title: 'Supprimer cette photo ?', text: 'Elle sera retirée de la galerie pour vous deux.', ok: 'Supprimer', danger: true }))) return;
   const { db, doc, deleteDoc } = window._fb;
   try {
     await deleteDoc(doc(db, 'photos', id));
@@ -1667,6 +1673,22 @@ function openSharedPhoto(id) {
   const p = sharedPhotos.find(x => x.id === id);
   if (!p) return;
   openLightbox(p.thumb, p.caption, photoMeta(p), p.id);
+  const i = sharedPhotos.indexOf(p);
+  const counter = document.getElementById('lightbox-counter');
+  if (counter) counter.textContent = sharedPhotos.length > 1 ? `${i + 1} / ${sharedPhotos.length}` : '';
+}
+
+/* dir = 1 (suivante) ou -1 (précédente), appelé par le glissement (ux.js) */
+function lightboxStep(dir) {
+  if (!lightboxPhotoId) return;
+  const i = sharedPhotos.findIndex(x => x.id === lightboxPhotoId);
+  const next = sharedPhotos[i + dir];
+  if (!next) return;
+  const img = document.getElementById('lightbox-img');
+  img.classList.remove('slide-left', 'slide-right');
+  void img.offsetWidth;
+  img.classList.add(dir > 0 ? 'slide-left' : 'slide-right');
+  openSharedPhoto(next.id);
 }
 
 function deleteLightboxPhoto() {
@@ -1676,6 +1698,8 @@ function deleteLightboxPhoto() {
 function closeLightbox() {
   document.getElementById('lightbox').classList.remove('open');
   lightboxPhotoId = null;
+  const counter = document.getElementById('lightbox-counter');
+  if (counter) counter.textContent = '';
 }
 
 function photoMeta(p) {

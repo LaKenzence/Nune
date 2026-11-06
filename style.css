@@ -3134,3 +3134,217 @@ button.quiz-opt:active { transform: scale(0.96); background: rgba(240,98,146,0.1
   .float-heart, .home-chip, .q-answer, .jar-note { animation: none; }
   .float-heart { display: none; }
 }
+
+/* ════════════════════════════════
+   UX v7 — confort d'utilisation
+════════════════════════════════ */
+
+/* ── Fenêtre de confirmation ── */
+.confirm-overlay { align-items: center; z-index: 650; }
+.confirm-overlay.closing { animation: overlayIn 0.18s ease reverse both; }
+.confirm-card { max-width: 340px; padding: 26px 22px 18px; }
+.confirm-icon { font-size: 38px; margin-bottom: 8px; }
+.confirm-title { font-size: 20px; }
+.confirm-text { font-size: 13px; line-height: 1.6; opacity: 0.7; margin-top: 8px; }
+.confirm-actions { display: flex; gap: 10px; margin-top: 22px; }
+.confirm-btn {
+  flex: 1;
+  padding: 13px 10px;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(135deg, var(--pink), var(--lilac));
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s;
+}
+.confirm-btn:active { transform: scale(0.96); }
+.confirm-btn.ghost { background: transparent; border: 1px solid var(--glass-border); color: var(--cream); font-weight: 400; }
+.confirm-btn.danger { background: linear-gradient(135deg, #e53935, #f06292); }
+
+/* ── Chat : double-tap ❤️ ── */
+.bubble { position: relative; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.bubble-love {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: 34px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: loveBurst 0.9s cubic-bezier(0.2, 1.4, 0.4, 1) forwards;
+}
+@keyframes loveBurst {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  30%  { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+  100% { transform: translate(-50%, -140%) scale(1); opacity: 0; }
+}
+
+/* Micro quand le champ est vide, flèche d'envoi dès qu'on écrit */
+.msg-input-bar.has-mic:not(.has-text):not(.recording) .msg-send-btn { display: none; }
+.msg-input-bar.has-mic.has-text .msg-mic-btn { display: none; }
+.msg-input-bar .msg-send-btn { animation: reactionPop 0.25s ease; }
+.msg-recording { right: 64px; }
+
+/* ── Clavier ouvert : on cache les onglets, le contenu remonte ── */
+body.typing .nav-tabs { transform: translateY(100%); }
+body.typing .swipe-dots { opacity: 0; pointer-events: none; }
+body.typing .swipe-wrapper { bottom: var(--kb, 0px); transition: bottom 0.2s ease; }
+body.typing .screen.subscreen.slide-in { bottom: var(--kb, 0px); height: auto; }
+
+/* ── Sous-écrans : l'en-tête reste visible en défilant ── */
+.screen.subscreen { padding-top: 0 !important; }
+.subscreen-header {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  max-width: none;
+  padding: max(18px, calc(env(safe-area-inset-top) + 10px)) max(20px, calc((100% - 340px) / 2)) 12px;
+  background: linear-gradient(180deg, rgba(20,12,42,0.96), rgba(20,12,42,0.78));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.screen.subscreen > :nth-child(2) { margin-top: 0 !important; }
+.screen.subscreen > .countdown-list,
+.screen.subscreen > .gallery-add-area,
+.screen.subscreen > .history-list,
+.screen.subscreen > .letter-wrapper,
+.screen.subscreen > #playlist-section,
+.screen.subscreen > div[style*="max-width:380px"] { margin-top: 16px !important; }
+.screen.subscreen.dragging { transition: none; box-shadow: -20px 0 40px rgba(0,0,0,0.4); }
+
+/* ── Notre coin : réglages ── */
+.screen-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.settings-entry {
+  width: calc(100% - 40px);
+  max-width: 340px;
+  margin-top: 26px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  text-align: left;
+  font-size: 22px;
+  cursor: pointer;
+}
+.settings-entry-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.settings-entry-title { font-size: 15px; font-weight: 500; }
+.settings-entry-sub { font-size: 11px; opacity: 0.5; }
+
+#screen-settings { justify-content: flex-start; }
+.set-profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--glass-border);
+  background: linear-gradient(135deg, rgba(240,98,146,0.12), rgba(206,147,216,0.08)), var(--glass);
+}
+.set-avatar { width: 54px; height: 54px; font-size: 24px; flex-shrink: 0; cursor: default; }
+.set-profile-body { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.set-name { padding: 9px 12px; font-size: 14px; }
+.set-group {
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  overflow: hidden;
+}
+.set-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.set-row + .set-row { border-top: 1px solid rgba(255,255,255,0.06); }
+.set-icon { font-size: 20px; width: 26px; text-align: center; flex-shrink: 0; }
+.set-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.set-title { font-size: 14px; font-weight: 500; }
+.set-sub { font-size: 11px; opacity: 0.55; line-height: 1.4; }
+.set-btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, var(--pink), var(--lilac));
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.set-btn.ghost { background: transparent; border: 1px solid var(--glass-border); color: var(--cream); }
+.set-btn.danger { color: #ffab91; border-color: rgba(255,138,128,0.4); }
+.set-themes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.set-theme {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+}
+.set-theme.active { border-color: rgba(240,98,146,0.6); box-shadow: 0 0 18px rgba(240,98,146,0.18); }
+.set-theme-swatch { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; }
+.set-footer { text-align: center; font-size: 11px; opacity: 0.3; margin-top: 18px; }
+
+/* ── Quoi de neuf ── */
+.news-card { max-height: 86vh; display: flex; flex-direction: column; }
+.news-list { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; overflow-y: auto; text-align: left; }
+.news-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: rgba(255,255,255,0.04);
+  color: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  text-align: left;
+  cursor: pointer;
+  animation: fadeSlideIn 0.4s ease both;
+}
+.news-item:nth-child(2) { animation-delay: 0.04s; }
+.news-item:nth-child(3) { animation-delay: 0.08s; }
+.news-item:nth-child(4) { animation-delay: 0.12s; }
+.news-item:nth-child(5) { animation-delay: 0.16s; }
+.news-item:nth-child(n+6) { animation-delay: 0.2s; }
+.news-item:active { border-color: rgba(240,98,146,0.4); background: rgba(240,98,146,0.1); }
+.news-icon { font-size: 22px; width: 30px; text-align: center; flex-shrink: 0; }
+.news-body { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.news-title { font-size: 14px; font-weight: 500; }
+.news-text { font-size: 11px; opacity: 0.55; line-height: 1.4; }
+
+/* ── Lightbox ── */
+#lightbox-counter { font-size: 11px; letter-spacing: 0.12em; opacity: 0.5; min-height: 14px; }
+#lightbox img.slide-left  { animation: lbLeft 0.28s ease; }
+#lightbox img.slide-right { animation: lbRight 0.28s ease; }
+@keyframes lbLeft  { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lbRight { from { transform: translateX(-40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ── Chargements : une lueur qui passe plutôt qu'un texte figé ── */
+.gallery-loading {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 50%, transparent 100%) 0 0 / 200% 100%;
+  border-radius: 18px;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* ── Pastilles « fait » ── */
+.tile-badge.done { background: #66bb6a; box-shadow: 0 0 14px rgba(102,187,106,0.5); }
+
+/* ── Toast : on peut le toucher pour le fermer ── */
+.toast { cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble-love, .news-item, .gallery-loading { animation: none; }
+}

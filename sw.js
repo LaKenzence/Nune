@@ -8,13 +8,13 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-com
 importScripts('firebase-config.js');
 
 /* ── PWA CACHE ── */
-const CACHE_NAME = 'twenty-three-v7';
+const CACHE_NAME = 'twenty-three-v8';
 const ASSETS = [
   './', './index.html', './app.js', './style.css',
   './firebase-config.js', './profiles.js',
   './firebase-messaging.js', './messaging-patch.js',
   './shared.js', './presence.js', './open-when.js', './daily.js',
-  './together.js', './voice.js', './memories.js', './play.js', './extras.js', './logo.svg',
+  './together.js', './voice.js', './memories.js', './play.js', './extras.js', './ux.js', './logo.svg',
 ];
 
 self.addEventListener('install', (e) => {

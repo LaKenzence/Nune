@@ -214,7 +214,7 @@
   }
 
   async function quizDelete(id) {
-    if (!confirm('Supprimer cette question ?')) return;
+    if (!(await Nune.confirm({ icon: '🧠', title: 'Supprimer cette question ?', ok: 'Supprimer', danger: true }))) return;
     try { await Nune.remove('quiz', id); } catch (e) { showToast('Suppression impossible 🙁'); }
   }
 
@@ -318,7 +318,7 @@
   }
 
   async function clearDrawing() {
-    if (!confirm('Effacer tout le dessin pour vous deux ?')) return;
+    if (!(await Nune.confirm({ icon: '🎨', title: 'Tout effacer ?', text: 'Le tableau sera vidé pour vous deux.', ok: 'Effacer', danger: true }))) return;
     const { db, doc, writeBatch } = window._fb;
     const batch = writeBatch(db);
     strokes.filter(s => s.id).slice(0, 500).forEach(s => batch.delete(doc(db, 'drawing', s.id)));

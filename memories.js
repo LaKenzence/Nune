@@ -125,7 +125,7 @@
   }
 
   async function remove(id) {
-    if (!confirm('Retirer ce souvenir du bocal ?')) return;
+    if (!(await Nune.confirm({ icon: '🫙', title: 'Retirer ce souvenir ?', ok: 'Retirer', danger: true }))) return;
     try { await Nune.remove('jar', id); } catch (e) { showToast('Suppression impossible 🙁'); }
   }
 

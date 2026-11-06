@@ -153,7 +153,7 @@
   }
 
   async function remove(id) {
-    if (!confirm('Supprimer cette lettre ?')) return;
+    if (!(await Nune.confirm({ icon: '✉️', title: 'Supprimer cette lettre ?', text: 'Elle ne pourra plus être ouverte.', ok: 'Supprimer', danger: true }))) return;
     const { db, doc, deleteDoc } = window._fb;
     try { await deleteDoc(doc(db, 'open_when', id)); showToast('Lettre supprimée 🌙'); }
     catch (e) { showToast('Suppression impossible 🙁'); }
@@ -164,7 +164,7 @@
     const l = letters.find(x => x.id === id);
     if (!l) return;
     if (!l.openedAt) {
-      if (!confirm(`Ouvrir maintenant la lettre « ouvre quand ${l.label} » ?`)) return;
+      if (!(await Nune.confirm({ icon: '💌', title: `Ouvre quand ${l.label}`, text: `C'est le bon moment ? ${Nune.nameOf(l.from)} saura que tu l'as ouverte.`, ok: 'Ouvrir la lettre', cancel: 'Pas encore' }))) return;
       const { db, doc, updateDoc, serverTimestamp } = window._fb;
       updateDoc(doc(db, 'open_when', id), { openedAt: serverTimestamp() }).catch(() => {});
       vibrate([30, 20, 60]);

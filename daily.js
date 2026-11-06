@@ -87,7 +87,12 @@
     const sub = document.getElementById('tile-question-sub');
     const badge = document.getElementById('tile-question-badge');
     if (sub) sub.textContent = questionFor(today());
-    if (badge) badge.style.display = mine ? 'none' : '';
+    if (badge) {
+      // « ! » : à toi de répondre · « ✓ » : vous avez répondu tous les deux
+      badge.style.display = !mine || theirs ? '' : 'none';
+      badge.textContent = mine ? '✓' : '!';
+      badge.classList.toggle('done', !!(mine && theirs));
+    }
 
     Nune.chip('question', {
       order: 1,

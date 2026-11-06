@@ -41,6 +41,13 @@
       <span class="msg-rec-hint">re-touche 🎙 pour envoyer</span>`;
     rec.querySelector('.msg-rec-cancel').onclick = () => stop(true);
     bar.appendChild(rec);
+
+    // Comme sur les messageries : micro quand le champ est vide, flèche dès qu'on écrit
+    bar.classList.add('has-mic');
+    const input = document.getElementById('chat-input');
+    const sync = () => bar.classList.toggle('has-text', !!input.value.trim());
+    input?.addEventListener('input', sync);
+    sync();
   }
 
   async function start() {
